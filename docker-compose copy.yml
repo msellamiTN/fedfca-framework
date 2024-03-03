@@ -1,0 +1,84 @@
+version: '3'
+networks:
+  kafka-netwrok:
+    driver: bridge
+
+services:
+  zookeeper:
+    image: confluentinc/cp-zookeeper:6.0.0
+    hostname: zookeeper
+    container_name: zookeeper
+    restart: always
+    ports:
+      - "32181:32181"
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 32181
+      ZOOKEEPER_TICK_TIME: 2000
+    networks:
+      - kafka-netwrok
+      
+  kafka:
+    image: confluentinc/cp-enterprise-kafka:6.0.0
+    hostname: kafka
+    container_name: kafka
+    restart: always
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: 'zookeeper:32181'
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+    networks:
+      - kafka-netwrok  
+
+  agm_actor:
+    build:
+      context: ./server
+      #dockerfile: DockerfileAGMActor
+    hostname: agm_actor
+    container_name: agm_actor
+    restart: always
+    networks:
+      - kafka-netwrok
+    depends_on:
+      - kafka 
+  alm_actor1:
+    build:
+      context: ./participant
+      #dockerfile: DockerfileALMActor
+    hostname: alm_actor1
+    container_name: alm_actor1
+    networks:
+      - kafka-netwrok
+    depends_on:
+      - kafka 
+      - agm_actor
+  alm_actor2:
+    build:
+      context: ./participant
+      #dockerfile: DockerfileALMActor
+    hostname: alm_actor2
+    container_name: alm_actor2
+    networks:
+      - kafka-netwrok
+    depends_on:
+      - kafka 
+      - agm_actor
+  alm_actor3:
+    build:
+      context: ./participant
+      #dockerfile: DockerfileALMActor
+    hostname: alm_actor3
+    container_name: alm_actor3
+    networks:
+      - kafka-netwrok
+    depends_on:
+      - kafka 
+      - agm_actor

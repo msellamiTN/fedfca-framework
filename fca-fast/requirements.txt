@@ -1,0 +1,9 @@
+cryptography
+pandas
+confluent-kafka
+networkx
+matplotlib
+cryptography
+tenseal
+ucimlrepo
+pyyaml

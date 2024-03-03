@@ -1,0 +1,11 @@
+cryptography
+pandas
+confluent-kafka
+dash
+dash-core-components
+dash-html-components
+dash-bootstrap-components # If you're using Bootstrap components
+plotly
+gunicorn
+flask
+ 

@@ -1,0 +1,161 @@
+version: '3.7'
+
+services:
+  zookeeper:
+    image: confluentinc/cp-zookeeper:latest
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_SERVER_ID: 1
+    ports:
+      - "2181:2181"
+    networks:
+      - fedfca-netwrok  
+
+  kafka-1:
+    image: confluentinc/cp-kafka:latest
+    ports:
+      - "9092:9092"
+      - "29092:29092"
+    environment:
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka-1:19092,EXTERNAL://${DOCKER_HOST_IP:-127.0.0.1}:9092,DOCKER://host.docker.internal:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT,DOCKER:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+      KAFKA_ZOOKEEPER_CONNECT: "zookeeper:2181"
+      KAFKA_BROKER_ID: 1
+    depends_on:
+      - zookeeper
+    networks:
+      - fedfca-netwrok  
+  kafka-2:
+    image: confluentinc/cp-kafka:latest
+    ports:
+      - "9093:9093"
+      - "29093:29093"
+    environment:
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka-2:19093,EXTERNAL://${DOCKER_HOST_IP:-127.0.0.1}:9093,DOCKER://host.docker.internal:29093
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT,DOCKER:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+      KAFKA_ZOOKEEPER_CONNECT: "zookeeper:2181"
+      KAFKA_BROKER_ID: 2
+    depends_on:
+      - zookeeper
+    networks:
+      - fedfca-netwrok  
+  kafka-3:
+    image: confluentinc/cp-kafka:latest
+    ports:
+      - "9094:9094"
+      - "29094:29094"
+    environment:
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka-3:19094,EXTERNAL://${DOCKER_HOST_IP:-127.0.0.1}:9094,DOCKER://host.docker.internal:29094
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT,DOCKER:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+      KAFKA_ZOOKEEPER_CONNECT: "zookeeper:2181"
+      KAFKA_BROKER_ID: 3
+    depends_on:
+      - zookeeper
+    networks:
+      - fedfca-netwrok  
+
+  agm_actor:
+    build:
+      context: ./server
+      #dockerfile: DockerfileAGMActor
+    hostname: agm_actor
+    container_name: agm_actor
+    restart: always
+    networks:
+      - fedfca-netwrok
+  # agg_actor:
+  #   build:
+  #     context: ./api
+  #     #dockerfile: DockerfileAGMActor
+  #   hostname: agg_actor
+  #   container_name: agg_actor
+  #   restart: always
+  #   networks:
+  #     - fedfca-netwrok
+ 
+  alm_actor1:
+    build:
+      context: ./participant
+      #dockerfile: DockerfileALMActor
+    hostname: alm_actor1
+    container_name: alm_actor1
+    networks:
+      - fedfca-netwrok
+    depends_on:
+ 
+      - agm_actor
+  alm_actor2:
+    build:
+      context: ./participant
+      #dockerfile: DockerfileALMActor
+    hostname: alm_actor2
+    container_name: alm_actor2
+    networks:
+      - fedfca-netwrok
+    depends_on:
+  
+      - agm_actor
+  alm_actor3:
+    build:
+      context: ./participant
+      #dockerfile: DockerfileALMActor
+    hostname: alm_actor3
+    container_name: alm_actor3
+    networks:
+      - fedfca-netwrok
+    depends_on:
+      - agm_actor
+  alm_actor4:
+    build:
+      context: ./participant
+      #dockerfile: DockerfileALMActor
+    hostname: alm_actor4
+    container_name: alm_actor4
+    networks:
+      - fedfca-netwrok
+    depends_on:
+      - agm_actor
+      
+  alm_actor5:
+    build:
+      context: ./participant
+      #dockerfile: DockerfileALMActor
+    hostname: alm_actor5
+    container_name: alm_actor5
+    networks:
+      - fedfca-netwrok
+    depends_on:
+      - agm_actor
+
+  fca_actor:
+    build:
+      context: ./fca-fast
+      #dockerfile: DockerfileALMActor
+    hostname: fca_actor
+    container_name: fca_actor
+    networks:
+      - fedfca-netwrok
+    depends_on:
+      - agm_actor
+  live_monitor:
+    build:
+      context: ./monitor
+      #dockerfile: DockerfileALMActor
+    hostname: live_monitor
+    container_name: live_monitor
+    networks:
+      - fedfca-netwrok
+    depends_on:
+      - agm_actor
+    ports:
+      - "8050:8050"
+ 
+
+
+networks:
+  fedfca-netwrok:
+    driver: bridge
+
