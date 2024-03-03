@@ -55,10 +55,10 @@ app.layout = html.Div([
 def update_average_runtime(n_intervals):
     # Consume messages from Kafka topic
     messages = consumer.consume(timeout=1.0)
-    message = json.loads(message.value().decode('utf-8'))
+    messages = json.loads(messages.value().decode('utf-8'))
     logging.info("message:%s",messages)
     data = [parse_message(message) for message in messages]
-    logging.info('messages:%s',messages)
+    logging.info('messages:%s',data)
     # Convert data to DataFrame
     df = pd.DataFrame(data)
     
