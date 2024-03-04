@@ -360,10 +360,14 @@ class ALMActor:
         try:
             self.producer.produce('AGM', value=json.dumps({'result': {self.actor_id:self.encryptedlattice.decode('utf-8')}}).encode('utf-8'),callback=self.delivery_report)
             self.producer.flush()
-            self.producer.produce('AGM', value=json.dumps({'stats': {self.actor_id:self.runtime_data}}).encode('utf-8'),callback=self.delivery_report) 
-            self.producer.flush()
+            if self.runtime_data is not None:
+
+                self.producer.produce('AGM', value=json.dumps({'stats': {self.actor_id:self.runtime_data}}).encode('utf-8'),callback=self.delivery_report) 
+                self.producer.flush()
+                logging.info("Sent stats result to AGM %s",{'stats': {self.actor_id:self.runtime_data}}).encode('utf-8')
+            
             logging.info("Sent encrypted result to AGM")
-            logging.info("Sent stats result to AGM %s",{'stats': {self.actor_id:self.runtime_data}}).encode('utf-8')
+           
         except Exception as e:
             logging.error("Error encrypting and sending result: %s", e)
 
