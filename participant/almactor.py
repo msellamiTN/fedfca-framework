@@ -303,7 +303,7 @@ class ALMActor:
 
     def build_lattice(self):
         try:
- 
+            self.startTime = time.time()
             logging.info("dataset_id: %s", self.dataset_id)
             loader = FCLoader(self.dataset_id, self.fraction)
             df = loader.load_data()
@@ -322,6 +322,16 @@ class ALMActor:
             logging.info("lattice: %s ", lattice)
             self.encryptedlattice = local_server.encrypt_data(str(lattice).encode(), self.key)
             logging.info("Begin Encrypting and sending result")
+            self.endTime= time.time()
+            self.RunTime = self.endTime -  self.startTime
+                # Prepare data to send to Kafka
+            self.runtime_data = {
+                    "Actor": self.actor_id,
+                    "StartTime":  self.startTime,
+                    "EndTime": self.endTime,
+                    "Runtime": self.RunTime
+                }
+            logging.info("runtime :%s",self.runtime_data)
             self.encrypt_and_send_result()
             logging.info("End Encrypting and sending result")
         except Exception as e:
@@ -360,14 +370,12 @@ class ALMActor:
         try:
             self.producer.produce('AGM', value=json.dumps({'result': {self.actor_id:self.encryptedlattice.decode('utf-8')}}).encode('utf-8'),callback=self.delivery_report)
             self.producer.flush()
-            if self.runtime_data is not None:
-
-                self.producer.produce('AGM', value=json.dumps({'stats': {self.actor_id:self.runtime_data}}).encode('utf-8'),callback=self.delivery_report) 
-                self.producer.flush()
-                logging.info("Sent stats result to AGM %s",{'stats': {self.actor_id:self.runtime_data}}).encode('utf-8')
-            
             logging.info("Sent encrypted result to AGM")
-           
+            if self.runtime_data is not None:
+                
+                  self.producer.produce('AGM', value=json.dumps({'stats': self.runtime_data}).encode('utf-8'),callback=self.delivery_report) 
+                  self.producer.flush()
+                  logging.info("Sent stats result to AGM %s",{'stats': {self.actor_id:self.runtime_data}}).encode('utf-8')
         except Exception as e:
             logging.error("Error encrypting and sending result: %s", e)
 

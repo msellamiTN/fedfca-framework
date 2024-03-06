@@ -338,10 +338,11 @@ class AGMActor:
 
     def handle_quality(self):
             # Example usage
-            
-            self.quality = self.compute_f1_score3()
-            print("F1-score:", self.quality)
-            logging.info("F1-mesure: % s",self.quality)
+            logging.info(f"{len (self.global_server.decrypted_lattices) } from: % s",self.num_clients)
+            if self.global_lattice is not None:
+                self.quality = self.compute_f1_score3()
+                print("F1-score:", self.quality)
+                logging.info("F1-mesure: % s",self.quality)
 
     def handle_message(self, message):
         try:
@@ -371,6 +372,18 @@ class AGMActor:
                         self.results[recipient] = decrypted_data
                     else:
                         logging.error("Error decrypting data for recipient %s", recipient)
+            if 'stats' in message:
+                result_dict = message['stats']
+                logging.info("%s",result_dict)
+                for recipient, stats_data in result_dict.items():
+                    if stats_data is not None:
+                        task_id = str(stats_data['Actor'])
+                        start_time = float(stats_data['StartTime'])
+                        end_time = float(stats_data['EndTime'])
+                        runtime = float(stats_data['Runtime'])
+                        logging.info("%s",{'Actor': task_id, 'StartTime': start_time, 'EndTime': end_time, 'Runtime': runtime})
+                    else:
+                        logging.error("Error stats data for recipient %s", recipient)
             self.handle_quality()      
         except Exception as e:
             logging.error("Error handling message: %s", e)
