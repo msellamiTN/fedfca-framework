@@ -7,3 +7,4 @@ cryptography
 tenseal
 ucimlrepo
 pyyaml
+redis

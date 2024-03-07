@@ -23,4 +23,4 @@ RUN pip install --no-cache-dir -r requirements.txt
 EXPOSE 8050
 
 # Run the Python script when the container launches
-CMD ["python", "dataviz_actor.py"]
+CMD ["python", "monitor.py"]

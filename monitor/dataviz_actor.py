@@ -1,6 +1,13 @@
 import logging
 from confluent_kafka import Consumer, KafkaError,TopicPartition
+import dash
+from dash import html, dcc
+from dash.dependencies import Input, Output
+import pandas as pd
+import queue
  
+import plotly.graph_objs as go
+import plotly.subplots as sp 
 import dash
 import dash_core_components as dcc
 import dash_html_components as html
@@ -30,7 +37,7 @@ class KafkaConsumerActor(threading.Thread):
             'EndTime': deque(maxlen=que_len),
             'Runtime': deque(maxlen=que_len)
         }
-        self.__update_que() 
+        #self.__update_que() 
         # try:
             
         #     # download first 180 messges
@@ -167,94 +174,68 @@ class DataProcessingActor(threading.Thread):
         
         logging.info("Data processed: %s", self.data.head())
 
+
+
 class DashActor:
     def __init__(self, data_queue):
-        
         self.external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
-
         self.app = dash.Dash(__name__, external_stylesheets=self.external_stylesheets)
         self.data_queue = data_queue
         self.init_layout()
 
     def init_layout(self):
-        self.app.layout = html.Div(
-            html.Div([
-                html.Div([
-                    html.H4('average_runtime_graph'),
-                    html.Div(id='terra-text'),
-                    dcc.Graph(id='terra-graph')
-                    ], className="four columns"),
-                html.Div([
-                    html.H4('AQUA Satellite Live Feed'),
-                    html.Div(id='aqua-text'),
-                    dcc.Graph(id='aqua-graph')
-                    ], className="four columns"),
-                html.Div([
-                    html.H4('AURA Satellite Live Feed'),
-                    html.Div(id='aura-text'),
-                    dcc.Graph(id='aura-graph')
-                    ], className="four columns"),
-                dcc.Interval(
-                    id='interval-component',
-                    interval=1*1000, # in milliseconds
-                    n_intervals=0
-                )
-            ], className="row")
-        )
-        def create_graphs(topic, live_update_text, live_update_graph):
-            kafka_servers = 'PLAINTEXT://kafka-1:19092,PLAINTEXT://kafka-2:19093,PLAINTEXT://kafka-3:19094'
-            data_queue = queue.Queue()
-            connect = KafkaConsumerActor(kafka_servers, data_queue,5)
-
-            @self.app.callback(Output(live_update_text, 'children'),
-                        [Input('interval-component', 'n_intervals')])
-            def update_metrics_terra(n):
-                Actor, StartTime, EndTime,Runtime = connect.get_last()
-
-                print('update metrics')
-                
-                
-                style = {'padding': '5px', 'fontSize': '15px'}
-                return [
-                    html.Span('StartTime: {0:.2f}'.format(StartTime), style=style),
-                    html.Span('EndTime: {0:.2f}'.format(EndTime), style=style),
-                    html.Span('Runtime: {0:0.2f}'.format(Runtime), style=style)
-                ]
-
-
-            # Multiple components can update everytime interval gets fired.
-            @self.app.callback(Output(live_update_graph, 'figure'),
-                        [Input('interval-component', 'n_intervals')])
-            def update_graph_live_terra(n):
-                # Collect some data
+        self.app.layout = html.Div([
+            dcc.Graph(id='average_runtime_graph'),
+            dcc.Interval(id='interval', interval=10000)  # Update interval in milliseconds
+        ])
+        
+        @self.app.callback(Output('average_runtime_graph', 'figure'),
+                           [Input('interval', 'n_intervals')])
+        def update_average_runtime(n_intervals):
+            if not self.data_queue.empty():
+                kafka_servers = 'PLAINTEXT://kafka-1:19092,PLAINTEXT://kafka-2:19093,PLAINTEXT://kafka-3:19094'
+                connect = KafkaConsumerActor(kafka_servers, self.data_queue, 5)
                 data = connect.get_graph_data()
-                print('Update graph, data units:', len(data['Runtime']))
-
-                # Create the graph with subplots
-                fig = plotly.tools.make_subplots(rows=2, cols=1, vertical_spacing=0.2)
-                fig['layout']['margin'] = {
-                    'l': 30, 'r': 10, 'b': 30, 't': 10
+                df = pd.DataFrame(list(data), columns=['Actor', 'StartTime', 'EndTime', 'Runtime'])
+                avg_runtime_by_task = df.groupby('Actor')['Runtime'].mean().reset_index()
+                global_avg_runtime = df['Runtime'].mean()
+                logging.info("Global average runtime: %s", global_avg_runtime)
+                fig = {
+                    'data': [
+                        {'x': avg_runtime_by_task['Actor'], 'y': avg_runtime_by_task['Runtime'], 'type': 'bar', 'name': 'Average Runtime by Task'},
+                        {'x': ['Global'], 'y': [global_avg_runtime], 'type': 'bar', 'name': 'Global Average Runtime'}
+                    ],
+                    'layout': {
+                        'title': 'Average Runtime',
+                        'yaxis': {'title': 'Runtime'},
+                        'barmode': 'group'
+                    }
                 }
-                fig['layout']['legend'] = {'x': 0, 'y': 1, 'xanchor': 'left'}
+                return fig
+            else:
+                return dash.no_update
 
-                fig.append_trace({
-                    'x': data['Actor'],
-                    'y': data['Runtime'],
-                    'name': 'Runtime',
-                    'mode': 'lines+markers',
-                    'type': 'scatter'
-                }, 1, 1)
-                fig.append_trace({
-                    'x': data['Actor'],
-                    'y': data['Runtime'],
-                    'text': data['Runtime'],
-                    'name': 'Runtime vs Runtime',
-                    'mode': 'lines+markers',
-                    'type': 'scatter'
-                }, 2, 1)
+    def create_graphs(self, live_update_graph):
+        kafka_servers = 'PLAINTEXT://kafka-1:19092,PLAINTEXT://kafka-2:19093,PLAINTEXT://kafka-3:19094'
+        connect = KafkaConsumerActor(kafka_servers, self.data_queue, 5)
 
-                return fig    
-        create_graphs('AGM', 'terra-text', 'terra-graph')   
+        @self.app.callback(Output(live_update_graph, 'figure'),
+                           [Input('interval', 'n_intervals')])
+        def update_graph_live_terra(n):
+            # Collect some data
+            data = connect.get_graph_data()
+            print('Update graph, data units:', len(data['Runtime']))
+
+            # Create the subplots
+            fig = sp.make_subplots(rows=2, cols=1, vertical_spacing=0.2)
+            fig['layout']['margin'] = {'l': 30, 'r': 10, 'b': 30, 't': 10}
+            fig['layout']['legend'] = {'x': 0, 'y': 1, 'xanchor': 'left'}
+
+            # Add traces to the subplots
+            fig.add_trace(go.Scatter(x=data['Actor'], y=data['Runtime'], mode='lines+markers', name='Runtime'), row=1, col=1)
+            fig.add_trace(go.Scatter(x=data['Actor'], y=data['Runtime'], text=data['Runtime'], mode='lines+markers', name='Runtime vs Runtime'), row=2, col=1)
+
+            return fig
 
     def run(self):
         self.app.run_server(host='0.0.0.0', port=8050, debug=True)
@@ -263,11 +244,7 @@ if __name__ == "__main__":
     kafka_servers = 'PLAINTEXT://kafka-1:19092,PLAINTEXT://kafka-2:19093,PLAINTEXT://kafka-3:19094'
     logging.basicConfig(level=logging.DEBUG)
 
-    data_queue = queue.Queue()
-    kafka_consumer_actor = KafkaConsumerActor(kafka_servers, data_queue,180)
-    data_processing_actor = DataProcessingActor(data_queue)
+    data_queue = queue.Queue() 
     dash_actor = DashActor(data_queue)
-
-    kafka_consumer_actor.start()
-    data_processing_actor.start()
+    
     dash_actor.run()

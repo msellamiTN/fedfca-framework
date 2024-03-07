@@ -153,7 +153,17 @@ services:
     ports:
       - "8050:8050"
  
-
+  redis:
+    image: redis
+    hostname: datastore
+    container_name: datastore
+    ports:
+      - "6379:6379"
+    environment:
+      - REDIS_PASSWORD=mysecred
+      - REDIS_USER=fedfac 
+    networks:
+      - fedfca-netwrok
 
 networks:
   fedfca-netwrok:

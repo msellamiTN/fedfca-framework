@@ -9,6 +9,7 @@ import random
 import yaml 
 import ast
 import json
+from logactor import LoggerActor
 class GlobalServer:
     def __init__(self):
         self.decrypted_lattices = []
@@ -145,7 +146,13 @@ class EncryptedGlobalServer(GlobalServer):
 class AGMActor:
     def __init__(self, kafka_servers,context_sensitivity):
         self.config_file = "config.yml"
+        self.dataset_id =  None
+        self.fraction = None
+        self.privacy_budget = None
+        self.quality_data={}
         self.load_config()
+        self.actor_id = socket.gethostname()
+        self.logactor= LoggerActor(self.actor_id)
         self.global_server = EncryptedGlobalServer()
         self.kafka_servers = kafka_servers
         self.key = Fernet.generate_key()
@@ -171,8 +178,8 @@ class AGMActor:
         with open(self.config_file, 'r') as f:
             config = yaml.safe_load(f)
         self.num_clients = config['clients']['num_clients']
-        #self.dataset_id = config['dataset']['id']
-        #self.fraction = config['fraction']
+        self.dataset_id = config['dataset']['id']
+        self.fraction = config['fraction']
         self.privacy_budget = config['privacy_budget']    
     def config_topics(self):
         client = AdminClient({'bootstrap.servers': self.kafka_servers, 'debug': 'broker,admin'})
@@ -252,6 +259,7 @@ class AGMActor:
             logging.error("Error computing F1-mesure: %s", e)
     def compute_f1_score3(self):
         try:
+            quality={}
             if self.fca_lattice is not None and self.global_lattice is not None:
                 true_positives = 0
                 false_positives = 0
@@ -291,11 +299,12 @@ class AGMActor:
 
                 precision = true_positives / (true_positives + false_positives) if (true_positives + false_positives) != 0 else 0
                 recall = true_positives / (true_positives + false_negatives) if (true_positives + false_negatives) != 0 else 0
-
+                quality["precision"]=precision
+                quality["recall"]=recall
                 # Calculate F1-score
                 f1_score = 2 * (precision * recall) / (precision + recall) if (precision + recall) != 0 else 0
-
-                return f1_score
+                quality["f1_score"]=f1_score
+                return quality
             else:
                 return None
         except Exception as e:
@@ -342,6 +351,15 @@ class AGMActor:
             if self.global_lattice is not None:
                 self.quality = self.compute_f1_score3()
                 print("F1-score:", self.quality)
+                self.quality_data={
+                    "Dataset_id": self.dataset_id,
+                    "Fraction"  : self.fraction,
+                    "Privacy_budget"  : self.privacy_budget,
+                    "F1-score": self.quality["f1-score"],
+                    "Precision": self.quality["precision"],
+                    "Recall": self.quality["recall"],
+                }
+                self.logactor.log_stats( self.quality_data) 
                 logging.info("F1-mesure: % s",self.quality)
 
     def handle_message(self, message):

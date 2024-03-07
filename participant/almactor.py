@@ -9,6 +9,7 @@ import pandas as pd
 from ucimlrepo import fetch_ucirepo
 import yaml
 import time
+from logactor import LoggerActor
 class FCLoader:
     def __init__(self, dataset_id, fraction):
         self.dataset_id = dataset_id
@@ -240,7 +241,9 @@ class ALMActor:
         self.kafka_servers = kafka_servers
         self.config_file = "config.yml"
         self.load_config()
+        
         self.actor_id = actor_id if actor_id else socket.gethostname()
+        self.logactor= LoggerActor(self.actor_id)
         self.data=f"No Data from {self.actor_id}"
         self.key = None  # Initialize key as None
         self.context_sensitivity=0.8 
@@ -372,7 +375,7 @@ class ALMActor:
             self.producer.flush()
             logging.info("Sent encrypted result to AGM")
             if self.runtime_data is not None:
-                
+                  self.logactor.log_stats(self.runtime_data)  
                   self.producer.produce('AGM', value=json.dumps({'stats': self.runtime_data}).encode('utf-8'),callback=self.delivery_report) 
                   self.producer.flush()
                   logging.info("Sent stats result to AGM %s",{'stats': {self.actor_id:self.runtime_data}}).encode('utf-8')

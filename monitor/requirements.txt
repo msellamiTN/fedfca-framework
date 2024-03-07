@@ -8,4 +8,4 @@ dash-bootstrap-components # If you're using Bootstrap components
 plotly
 gunicorn
 flask
- 
+redis 
