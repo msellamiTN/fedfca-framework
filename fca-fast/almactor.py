@@ -11,7 +11,8 @@ import yaml
 import json
 import pandas as pd
 import numpy as np
-
+import time
+from logactor import LoggerActor
 
 class FCLoader:
     def __init__(self, dataset_id, fraction):
@@ -258,10 +259,12 @@ class ALMActor:
         self.config_file = "config.yml"
         self.load_config()
         self.actor_id = actor_id if actor_id else socket.gethostname()
+        self.logactor= LoggerActor(self.actor_id)
         self.data=f"No Data from {self.actor_id}"
         self.key = None  # Initialize key as None
         self.context_sensitivity=0.8 
         self.encryptedlattice=None
+        self.runtime_data={}
         self.cipher_suite = None
         self.producer = Producer({'bootstrap.servers': kafka_servers})
         self.consumer = Consumer({
@@ -290,7 +293,18 @@ class ALMActor:
                 self.context_sensitivity = float(message['context_sensitivity'])
                 logging.info('execute_task message')
                 #self.execute_task()
+                self.startTime= time.time()
                 self.build_lattice()
+                self.endTime= time.time()
+                self.RunTime = self.endTime -  self.startTime
+                    # Prepare data to send to Kafka
+                self.runtime_data = {
+                        "Actor": self.actor_id,
+                        "StartTime":  self.startTime,
+                        "EndTime": self.endTime,
+                        "Runtime": self.RunTime
+                    }
+                logging.info("runtime :%s",self.runtime_data)
  
         except Exception as e:
             logging.error('Error handling message: %s', e)
@@ -362,6 +376,8 @@ class ALMActor:
             self.producer.produce('AGM', value=json.dumps({'fca-central': {self.actor_id:self.encryptedlattice.decode('utf-8')}}).encode('utf-8'),callback=self.delivery_report)
             self.producer.flush()
             logging.info("Sent encrypted result to AGM")
+            if self.runtime_data is not None:
+                  self.logactor.log_stats(self.runtime_data)
         except Exception as e:
             logging.error("Error encrypting and sending result: %s", e)
 

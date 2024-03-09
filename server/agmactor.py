@@ -8,7 +8,7 @@ import networkx as nx
 import random
 import yaml 
 import ast
-import json
+import time
 from logactor import LoggerActor
 class GlobalServer:
     def __init__(self):
@@ -149,6 +149,10 @@ class AGMActor:
         self.dataset_id =  None
         self.fraction = None
         self.privacy_budget = None
+        self.startTime=None
+        self.endTime=None
+        self.RunTime=None
+        self.runtime_data=None
         self.quality_data={}
         self.load_config()
         self.actor_id = socket.gethostname()
@@ -347,38 +351,57 @@ class AGMActor:
 
     def handle_quality(self):
             # Example usage
-            logging.info(f"{len (self.global_server.decrypted_lattices) } from: % s",self.num_clients)
-            if self.global_lattice is not None:
-                self.quality = self.compute_f1_score3()
-                print("F1-score:", self.quality)
-                self.quality_data={
-                    "Dataset_id": self.dataset_id,
-                    "Fraction"  : self.fraction,
-                    "Privacy_budget"  : self.privacy_budget,
-                    "F1-score": self.quality["f1-score"],
-                    "Precision": self.quality["precision"],
-                    "Recall": self.quality["recall"],
-                }
-                self.logactor.log_stats( self.quality_data) 
-                logging.info("F1-mesure: % s",self.quality)
+            try:
+                    
+                logging.info(f"{len (self.global_server.decrypted_lattices) } from: % s",self.num_clients)
+                if self.global_lattice is not None:
+                    self.quality = self.compute_f1_score3()
+                    logging.info("F1-score:%s", self.quality)
+                    self.quality_data = {
+                        "Dataset_id": self.dataset_id,
+                        "Fraction": self.fraction,
+                        "Privacy_budget": self.privacy_budget,
+                        "F1-score": self.quality["f1_score"],
+                        "Precision": self.quality["precision"],
+                        "Recall": self.quality["recall"]
+                    }
 
+                    self.logactor.log_stats( self.quality_data,keyspace='data_quality') 
+                    logging.info("F1-mesure: % s",self.quality)
+            except Exception as e:
+                logging.error("Error quality : %s", e)
     def handle_message(self, message):
         try:
             message = json.loads(message.value().decode('utf-8'))
             #logging.info("Received message: %s", message)
             if 'result' in message:
                 result_dict = message['result']
-                for recipient, encrypted_data in result_dict.items():
-                    self.global_server.receive_encrypted_lattice_from_local(encrypted_data,self.key)
-                    self.global_lattice=self.global_server.union_decrypted_lattices()
-                    
-                    #logging.info("Decrypted data for recipient %s: %s", recipient, lattice)
-                    decrypted_data = self.decrypt_message(encrypted_data)
-                    if decrypted_data is not None:
-                        #logging.info("Decrypted data for recipient %s: %s", recipient, decrypted_data)
-                        self.results[recipient] = decrypted_data
-                    else:
-                        logging.error("Error decrypting data for recipient %s", recipient)
+                try:
+                    for recipient, encrypted_data in result_dict.items():
+                        self.startTime = time.time()
+                        self.global_server.receive_encrypted_lattice_from_local(encrypted_data,self.key)
+                        self.global_lattice=self.global_server.union_decrypted_lattices()
+                        
+                        #logging.info("Decrypted data for recipient %s: %s", recipient, lattice)
+                        decrypted_data = self.decrypt_message(encrypted_data)
+                        if decrypted_data is not None:
+                            #logging.info("Decrypted data for recipient %s: %s", recipient, decrypted_data)
+                            self.results[recipient] = decrypted_data
+                        else:
+                            logging.error("Error decrypting data for recipient %s", recipient)
+                        self.endTime = time.time()
+                        self.RunTime = self.endTime-self.startTime
+                        # Prepare data to send to Kafka
+                        self.runtime_data = {
+                            "Actor": self.actor_id,
+                            "StartTime":  self.startTime,
+                            "EndTime": self.endTime,
+                            "Runtime": self.RunTime
+                        }
+                        self.logactor.log_stats(self.runtime_data)  
+                        logging.info("runtime :%s",self.runtime_data)
+                except Exception as e:
+                    logging.error("runtime error :%s",e)
             elif 'fca-central' in message:
                 result_dict = message['fca-central']
                 for recipient, encrypted_data in result_dict.items():
@@ -390,18 +413,19 @@ class AGMActor:
                         self.results[recipient] = decrypted_data
                     else:
                         logging.error("Error decrypting data for recipient %s", recipient)
-            if 'stats' in message:
-                result_dict = message['stats']
-                logging.info("%s",result_dict)
-                for recipient, stats_data in result_dict.items():
-                    if stats_data is not None:
-                        task_id = str(stats_data['Actor'])
-                        start_time = float(stats_data['StartTime'])
-                        end_time = float(stats_data['EndTime'])
-                        runtime = float(stats_data['Runtime'])
-                        logging.info("%s",{'Actor': task_id, 'StartTime': start_time, 'EndTime': end_time, 'Runtime': runtime})
-                    else:
-                        logging.error("Error stats data for recipient %s", recipient)
+            # if 'stats' in message:
+            #     try:
+            #         result_dict = message['stats']
+            #         logging.info("%s",result_dict)
+            #         for recipient, stats_data in result_dict.items():
+            #             if stats_data is not None:
+            #                 task_id = str(stats_data['Actor'])
+            #                 start_time = float(stats_data['StartTime'])
+            #                 end_time = float(stats_data['EndTime'])
+            #                 runtime = float(stats_data['Runtime'])
+            #                 logging.info("%s",{'Actor': task_id, 'StartTime': start_time, 'EndTime': end_time, 'Runtime': runtime})
+            #     except Exception as e:
+            #             logging.error("Error stats data for recipient %s", e)
             self.handle_quality()      
         except Exception as e:
             logging.error("Error handling message: %s", e)

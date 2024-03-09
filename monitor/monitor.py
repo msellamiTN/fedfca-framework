@@ -7,6 +7,7 @@ import logging
 # Connect to Redis
 try:
     redis_client = redis.StrictRedis(host='datastore', port=6379, db=0)
+    logging.info("redis is connected e : %s", redis_client.client_info())
 except Exception as e:
     logging.error("Error connecting to Redis: %s", e)
 
@@ -50,7 +51,7 @@ def update_stats(_):
         start_times.append(stats['StartTime'])
         end_times.append(stats['EndTime'])
         runtimes.append(stats['Runtime'])
-    
+        logging.info("data extracted : %s", data)
     # Create a bar chart for each actor's runtime
      # Create a bar chart for each actor's runtime
     # Create a bar chart for each actor's runtime
@@ -76,7 +77,7 @@ def update_stats(_):
     # }
     # Calculate average runtime
     average_runtime = sum(runtimes) / len(runtimes)
-
+    logging.info("average_runtime : %s", average_runtime)
     # Create a bar chart for each actor's runtime
     figure = {
         'data': [
@@ -108,15 +109,17 @@ def update_stats(_):
             'yaxis': {'title': 'Runtime (seconds)'}
         }
     }
+    f1_measure_data = redis_client.lrange('data_quality', 0, -1)
+    logging.info("f1_measure_data : %s", f1_measure_data)
         # Calculate F1-Measure for each dataset ID
-    f1_measure_data = [
-        {'dataset_id': 'dataset_1', 'f1_measure': 0.85},
-        {'dataset_id': 'dataset_2', 'f1_measure': 0.91},
-        {'dataset_id': 'dataset_3', 'f1_measure': 0.78}
-    ]
+    # f1_measure_data = [
+    #     {'dataset_id': 'dataset_1', 'f1_measure': 0.85},
+    #     {'dataset_id': 'dataset_2', 'f1_measure': 0.91},
+    #     {'dataset_id': 'dataset_3', 'f1_measure': 0.78}
+    # ]
 
-    dataset_ids = [item['dataset_id'] for item in f1_measure_data]
-    f1_measures = [item['f1_measure'] for item in f1_measure_data]
+    dataset_ids = [item['Dataset_id'] for item in f1_measure_data]
+    f1_measures = [item['F1-score'] for item in f1_measure_data]
 
     # Create a bar chart for F1-Measure of each dataset ID
     figure_runtime = {

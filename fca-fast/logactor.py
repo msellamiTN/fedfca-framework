@@ -13,12 +13,9 @@ class LoggerActor:
         self.end_time = None
         self.stats={}
 
-    def log_stats(self,stats,keyspace='data_stats'):
-        try:
-            redis_client.rpush(keyspace, json.dumps(stats))
-            logging.info("data_stats is saved : %s", stats)
-        except Exception as e:
-            logging.error("error redis : %s", e)
+    def log_stats(self,stats):
+        redis_client.rpush('data_stats', json.dumps(stats))
+        logging.info("data_stats is saved : %s", stats)
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)

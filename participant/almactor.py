@@ -252,7 +252,7 @@ class ALMActor:
         self.startTime=None
         self.endTime=None
         self.RunTime=None
-        self.runtime_data=None
+        self.runtime_data={}
         self.producer = Producer({'bootstrap.servers': kafka_servers})
         self.consumer = Consumer({
             'bootstrap.servers': kafka_servers,
@@ -374,11 +374,12 @@ class ALMActor:
             self.producer.produce('AGM', value=json.dumps({'result': {self.actor_id:self.encryptedlattice.decode('utf-8')}}).encode('utf-8'),callback=self.delivery_report)
             self.producer.flush()
             logging.info("Sent encrypted result to AGM")
+            logging.info("Begin Stats Save")
             if self.runtime_data is not None:
                   self.logactor.log_stats(self.runtime_data)  
-                  self.producer.produce('AGM', value=json.dumps({'stats': self.runtime_data}).encode('utf-8'),callback=self.delivery_report) 
-                  self.producer.flush()
-                  logging.info("Sent stats result to AGM %s",{'stats': {self.actor_id:self.runtime_data}}).encode('utf-8')
+                  #self.producer.produce('AGM', value=json.dumps({'stats': self.runtime_data}).encode('utf-8'),callback=self.delivery_report) 
+                  #self.producer.flush()
+                  logging.info("Save stats result to datastore %s",{'stats': {self.actor_id:self.runtime_data}}).encode('utf-8')
         except Exception as e:
             logging.error("Error encrypting and sending result: %s", e)
 
