@@ -1,0 +1,6 @@
+clients:
+  num_clients: 4
+dataset:
+  id: 12
+privacy_budget: 10
+fraction: 0.4

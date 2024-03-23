@@ -3,25 +3,24 @@ from dash import dcc, html
 from dash.dependencies import Input, Output
 import redis
 import logging
+import json
 
 # Connect to Redis
 try:
     redis_client = redis.StrictRedis(host='datastore', port=6379, db=0)
-    logging.info("redis is connected e : %s", redis_client.client_info())
+    logging.info("Redis connection successful: %s", redis_client.client_info())
 except Exception as e:
     logging.error("Error connecting to Redis: %s", e)
 
 # Initialize Dash app
 app = dash.Dash(__name__)
 
- 
-
 # Define layout
 app.layout = html.Div([
     html.H1("Real-time Data Stats"),
     dcc.Interval(
         id='interval-component',
-        interval=5*1000,  # in milliseconds
+        interval=5 * 1000,  # in milliseconds
         n_intervals=0
     ),
     dcc.Graph(id='runtime-graph'),  # Add graph for runtime
@@ -40,67 +39,41 @@ def update_stats(_):
     
     # Initialize lists to store data for plotting
     actors = []
-    start_times = []
-    end_times = []
     runtimes = []
     
     # Parse data and populate lists
     for data in data_stats:
         stats = eval(data.decode())  # Assuming data is stored as a stringified dictionary
-        actors.append(stats['Actor'])
-        start_times.append(stats['StartTime'])
-        end_times.append(stats['EndTime'])
-        runtimes.append(stats['Runtime'])
-        logging.info("data extracted : %s", data)
-    # Create a bar chart for each actor's runtime
-     # Create a bar chart for each actor's runtime
-    # Create a bar chart for each actor's runtime
-    # figure = {
-    #     'data': [
-    #         {
-    #             'x': actors,
-    #             'y': runtimes,
-    #             'type': 'bar',
-    #             'name': 'Runtime',
-    #             'marker': {
-    #                 'color': ['rgb(255, 102, 102)', 'rgb(102, 255, 178)', 'rgb(255, 178, 102)']  # Add color codes for each bar
-    #             },
-    #             'text': runtimes,  # Display runtime values on top of each bar
-    #             'textposition': 'auto',  # Automatically position the text on top of each bar
-    #         }
-    #     ],
-    #     'layout': {
-    #         'title': 'Actor Runtimes',
-    #         'xaxis': {'title': 'Actor'},
-    #         'yaxis': {'title': 'Runtime (seconds)'}
-    #     }
-    # }
+        if stats != {} and stats is not None:
+            actors.append(stats['Actor'])
+            runtimes.append(stats['Runtime'])
+            logging.info("Data extracted: %s", data)
+
     # Calculate average runtime
-    average_runtime = sum(runtimes) / len(runtimes)
-    logging.info("average_runtime : %s", average_runtime)
-    # Create a bar chart for each actor's runtime
-    figure = {
+    average_runtime = sum(runtimes) / len(runtimes) if runtimes else 0
+    logging.info("Average Runtime: %s", average_runtime)
+    
+    # Create figure for runtime graph
+    figure_runtime = {
         'data': [
             {
                 'x': actors,
                 'y': runtimes,
                 'type': 'bar',
                 'name': 'Runtime',
-                'marker': {
-                    'color': ['rgb(255, 102, 102)', 'rgb(102, 255, 178)', 'rgb(255, 178, 102)']  # Add color codes for each bar
-                },
-                'text': runtimes,  # Display runtime values on top of each bar
-                'textposition': 'auto',  # Automatically position the text on top of each bar
+                'marker': {'color': 'rgb(102, 178, 255)'},
+                'text': runtimes,
+                'textposition': 'auto'
             },
             {
                 'x': actors,
-                'y': [average_runtime] * len(actors),  # Create a list of the same average value for each actor
+                'y': [average_runtime] * len(actors),
                 'type': 'line',
                 'name': 'Average Runtime',
                 'mode': 'lines',
-                'line': {'dash': 'dash', 'color': 'blue'},  # Set line properties (dashed and blue)
-                'text': ['Average Runtime'] * len(actors),  # Display 'Average Runtime' label for each data point
-                'textposition': 'top center',  # Position label at the top center of each data point
+                'line': {'dash': 'dash', 'color': 'blue'},
+                'text': ['Average Runtime'] * len(actors),
+                'textposition': 'top center'
             }
         ],
         'layout': {
@@ -109,45 +82,25 @@ def update_stats(_):
             'yaxis': {'title': 'Runtime (seconds)'}
         }
     }
+    
+    # Retrieve F1-measure data from Redis
     f1_measure_data = redis_client.lrange('data_quality', 0, -1)
-    logging.info("f1_measure_data : %s", f1_measure_data)
-        # Calculate F1-Measure for each dataset ID
-    # f1_measure_data = [
-    #     {'dataset_id': 'dataset_1', 'f1_measure': 0.85},
-    #     {'dataset_id': 'dataset_2', 'f1_measure': 0.91},
-    #     {'dataset_id': 'dataset_3', 'f1_measure': 0.78}
-    # ]
 
-    dataset_ids = [item['Dataset_id'] for item in f1_measure_data]
-    f1_measures = [item['F1-score'] for item in f1_measure_data]
+    # Parse each JSON string into a dictionary
+    parsed_data = [json.loads(item) for item in f1_measure_data]
 
-    # Create a bar chart for F1-Measure of each dataset ID
-    figure_runtime = {
-        'data': [
-            {
-                'x': dataset_ids,
-                'y': f1_measures,
-                'type': 'bar',
-                'name': 'F1-Measure',
-                'marker': {'color': 'rgb(102, 178, 255)'}  # Set color for bars
-            }
-        ],
-        'layout': {
-            'title': 'F1-Measure for Dataset IDs',
-            'xaxis': {'title': 'Dataset ID'},
-            'yaxis': {'title': 'F1-Measure'}
-        }
-    }
-    # F1-Measure data for each dataset ID (replace with your implementation)
-    f1_measure_data = {
-        'dataset_1': [0.85, 0.87, 0.80, 0.78, 0.75, 0.72, 0.70, 0.68, 0.65],
-        'dataset_2': [0.91, 0.89, 0.87, 0.84, 0.82, 0.80, 0.78, 0.75, 0.72],
-        'dataset_3': [0.78, 0.80, 0.75, 0.72, 0.70, 0.68, 0.65, 0.62, 0.60]
-    }
+    # Extract dataset IDs and F1-measures for the runtime chart
+    dataset_ids = [item['Dataset_id'] for item in parsed_data]
+    f1_measures = [item['F1-score'] for item in parsed_data]
 
-    # Create a figure for each dataset ID
     f1_measure_graphs = []
-    for dataset_id, f1_measures in f1_measure_data.items():
+    for item in parsed_data:
+        dataset_id = item['Dataset_id']
+        f1_measures = item['F1-score']  # Assuming 'F1-measure' is a list in parsed data
+        if not f1_measures:  # Handle cases where data might be missing
+            continue
+
+        # Create a line graph for this dataset
         figure_f1 = {
             'data': [
                 {

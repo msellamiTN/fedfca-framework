@@ -8,6 +8,7 @@ import networkx as nx
 import random
 import yaml 
 import ast
+from collections import Counter
 import time
 from logactor import LoggerActor
 class GlobalServer:
@@ -31,29 +32,33 @@ class EncryptedGlobalServer(GlobalServer):
         else:
             return 0
     def get_infimum_concept(self):
-        if self.objects is not None and self.attributes is not None and self.decrypted_lattices:
-            infimum_objs = None
-            infimum_attrs = set()
-            max_properties = 0
-            for lattice in self.decrypted_lattices:
-                for concept in lattice:
-                    num_properties = len(concept[0]) + len(concept[1])
-                    if num_properties > max_properties:
-                        max_properties = num_properties
-                        infimum_objs, infimum_attrs = concept[0], set(concept[1])
-            for lattice in self.decrypted_lattices:
-                for concept in lattice:
-                    infimum_objs = list(set(infimum_objs) & set(concept[0]))
-                    infimum_attrs = infimum_attrs.union(set(concept[1]))
+        try:
 
-            return infimum_objs, list(infimum_attrs)
-        else:
-            return None
+            if self.objects is not None and self.attributes is not None and self.decrypted_lattices:
+                infimum_objs = None
+                infimum_attrs = set()
+                max_properties = 0
+                for lattice in self.decrypted_lattices:
+                    for concept in lattice:
+                        num_properties = len(concept[0]) + len(concept[1])
+                        if num_properties > max_properties:
+                            max_properties = num_properties
+                            infimum_objs, infimum_attrs = concept[0], set(concept[1])
+                for lattice in self.decrypted_lattices:
+                    for concept in lattice:
+                        infimum_objs = list(set(infimum_objs) & set(concept[0]))
+                        infimum_attrs = infimum_attrs.union(set(concept[1]))
 
+                return infimum_objs, list(infimum_attrs)
+            else:
+                return None
+        except Exception as e:
+            logging.error("error computing infimum :%s",e)
 
 
 
     def get_supremum_concept(self):
+        try:
             if self.objects is not None and self.attributes is not None and self.decrypted_lattices:
                 supremum_objs = set()
                 supremum_attrs = None
@@ -74,18 +79,129 @@ class EncryptedGlobalServer(GlobalServer):
                 return list(supremum_objs), supremum_attrs
             else:
                 return None
-
-    
+        except Exception as e:
+            logging.error("error computing suprremum :%s",e)
     def union_decrypted_lattices(self):
-        flattened_list = [item for sublist in self.decrypted_lattices for item in sublist]
+        """
+            Combines decrypted lattices using supremum and infimum calculations,
+            respecting lattice theory principles.
 
+            Returns:
+                A list of unique concept pairs (intent, extent) representing the combined lattice.
+        """
+        # try:
+        # Use a set for efficient membership checking
+        flattened_list = [item for sublist in self.decrypted_lattices for item in sublist]
+         
+        unique_concepts = []
+        formatted_result =[]
+        logging.info("global lattice:%s",flattened_list)
+        # Infimum and supremum (can be pre-calculated if known)
+        infimum_concept = self.get_infimum_concept()
+        supremum_concept = self.get_supremum_concept()
+        
+        unique_concepts.append(infimum_concept)
+        unique_concepts.append(supremum_concept)
+
+        for concept in flattened_list:
+            logging.info("concept :%s", concept)
+            for other_concept in unique_concepts.copy():  # Iterate over a copy to avoid modification issues
+                if concept != other_concept:
+                    supremum = self.calculate_supremum(concept, other_concept)
+                    infimum = self.calculate_infimum(concept, other_concept)
+
+                # Option 1: Convert extents (concept[1]) to tuples before adding to set (preferred)
+                if supremum not in unique_concepts and supremum != infimum:
+                    unique_concepts.append((concept[0], tuple(supremum[1])))
+
+                if infimum not in unique_concepts and infimum != supremum:
+                    unique_concepts.append((concept[0], tuple(infimum[1])))
+
+                # Option 2: Modify unique_concepts to hold entire concept tuples (if separate intent/extent not needed)
+                # unique_concepts = set(self.decrypted_lattices)  # concepts is a list of concept tuples
+
+        # Convert set of concepts to formatted list
+        formatted_result =(unique_concepts)
+        print(f"global lattice ssss:{formatted_result}")
+        return formatted_result
+    # except Exception as e:
+    #     logging.error("error lattice aggregator :%s", e)
+
+ 
+ 
+    def calculate_supremum(self, concept1, concept2):
+        """
+        Calculates the supremum (least upper bound) of two concepts.
+
+        Args:
+            concept1: A concept represented as a tuple (intent, extent).
+            concept2: A concept represented as a tuple (intent, extent).
+
+        Returns:
+            The supremum concept (intent, extent).
+        """
+        intent_sup = set(concept1[0]) | set(concept2[0])  # Union of intents
+        extent_sup = [obj for obj in self.objects if obj in concept1[1] or obj in concept2[1]]  # Intersection of extents
+    
+        return (list(intent_sup), extent_sup)
+
+    def calculate_infimum(self, concept1, concept2):
+        """
+        Calculates the infimum (greatest lower bound) of two concepts.
+
+        Args:
+            concept1: A concept represented as a tuple (intent, extent).
+            concept2: A concept represented as a tuple (intent, extent).
+
+        Returns:
+            The infimum concept (intent, extent).
+        """
+        intent_inf = list(set(concept1[0]) & set(concept2[0]))  # Intersection of intents
+        extent_inf = [obj for obj in concept1[1] if obj in concept2[1]]  # Intersection of extents
+        return (intent_inf, extent_inf)
+    
+    def compute_f1_score4(self):
+      """
+      Computes the F1 score between a generated lattice and a ground truth FCA lattice.
+
+      Args:
+        generated_lattice: A list of lists representing the generated lattice structure.
+        fac_lattice: A list of lists representing the ground truth FCA lattice structure.
+
+      Returns:
+        A tuple containing precision, recall, and F1 score (all floats between 0 and 1).
+      """
+      # Count true positives, false positives, false negatives
+      tp = fp = fn = 0
+      for concept in self.global_lattice:
+        # Check if concept exists in fac_lattice
+        if concept in  self.fca_lattice:
+          tp += 1  # True positive: concept is in both lattices
+        else:
+          fp += 1  # False positive: concept only in generated lattice
+
+      # Count elements missing from generated lattice
+      for concept in  self.fca_lattice:
+        if concept not in  self.global_lattice:
+          fn += 1  # False negative: concept only in fac_lattice
+
+      # Calculate precision, recall, and F1 score (handle division by zero)
+      precision = tp / (tp + fp) if tp + fp > 0 else 0
+      recall = tp / (tp + fn) if tp + fn > 0 else 0
+      f1_score = 2 * (precision * recall) / (precision + recall) if precision + recall > 0 else 0
+      quality={"precision":precision,"recall":recall,"f1_score":f1_score}
+      return quality
+
+    def union_decrypted_lattices_old(self):
+        flattened_list = [item for sublist in self.decrypted_lattices for item in sublist]
+        logging.info("Lattice Received:%s",flattened_list)
         infimum_concept = self.get_infimum_concept()
         supremum_concept = self.get_supremum_concept()
         other_concepts = flattened_list
         unique_concepts = []
 
         unique_concepts.extend([infimum_concept, supremum_concept])
-
+        logging.info("Global Lattice SUP/Inf:%s",unique_concepts)
         for concept in other_concepts:
             if concept not in unique_concepts:
                 unique_concepts.append(concept)
@@ -145,7 +261,7 @@ class EncryptedGlobalServer(GlobalServer):
         
 class AGMActor:
     def __init__(self, kafka_servers,context_sensitivity):
-        self.config_file = "config.yml"
+        self.config_file = "/data/config.yml"
         self.dataset_id =  None
         self.fraction = None
         self.privacy_budget = None
@@ -208,9 +324,44 @@ class AGMActor:
  
         
 
- 
+    def compute_f1_score4(self):
+      """
+      Computes the F1 score between a generated lattice and a ground truth FCA lattice.
+
+      Args:
+        generated_lattice: A list of lists representing the generated lattice structure.
+        fac_lattice: A list of lists representing the ground truth FCA lattice structure.
+
+      Returns:
+        A tuple containing precision, recall, and F1 score (all floats between 0 and 1).
+      """
+      # Count true positives, false positives, false negatives
+      tp = fp = fn = 0
+      for concept in self.global_lattice:
+        # Check if concept exists in fac_lattice
+        if concept in  self.fca_lattice:
+          tp += 1  # True positive: concept is in both lattices
+        else:
+          fp += 1  # False positive: concept only in generated lattice
+
+      # Count elements missing from generated lattice
+      for concept in  self.fca_lattice:
+        if concept not in  self.global_lattice:
+          fn += 1  # False negative: concept only in fac_lattice
+
+      # Calculate precision, recall, and F1 score (handle division by zero)
+      precision = tp / (tp + fp) if tp + fp > 0 else 0
+      recall = tp / (tp + fn) if tp + fn > 0 else 0
+      f1_score = 2 * (precision * recall) / (precision + recall) if precision + recall > 0 else 0
+      quality={"precision":precision,"recall":recall,"f1_score":f1_score}
+      return quality
+
+
+     
     def compute_f1_score(self):
         try:
+            logging.info("fca lattice: %s", self.fca_lattice)
+            logging.info("global lattice: %s", self.global_lattice)
             if self.fca_lattice is not None and self.global_lattice is not None:
                 true_positives = 0
                 false_positives = 0
@@ -355,12 +506,13 @@ class AGMActor:
                     
                 logging.info(f"{len (self.global_server.decrypted_lattices) } from: % s",self.num_clients)
                 if self.global_lattice is not None:
-                    self.quality = self.compute_f1_score3()
+                    self.quality = self.compute_f1_score4()
                     logging.info("F1-score:%s", self.quality)
                     self.quality_data = {
-                        "Dataset_id": self.dataset_id,
-                        "Fraction": self.fraction,
-                        "Privacy_budget": self.privacy_budget,
+                    "Dataset_id": self.dataset_id,
+                    "Fraction": self.fraction,
+                    "Privacy_budget": self.privacy_budget,
+                    "Participant": self.num_clients,
                         "F1-score": self.quality["f1_score"],
                         "Precision": self.quality["precision"],
                         "Recall": self.quality["recall"]

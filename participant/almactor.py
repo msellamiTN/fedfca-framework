@@ -239,7 +239,7 @@ class EncryptedLocalServer(LocalServer):
 class ALMActor:
     def __init__(self, kafka_servers, actor_id=None):
         self.kafka_servers = kafka_servers
-        self.config_file = "config.yml"
+        self.config_file = "/data/config.yml"
         self.load_config()
         
         self.actor_id = actor_id if actor_id else socket.gethostname()
@@ -329,6 +329,10 @@ class ALMActor:
             self.RunTime = self.endTime -  self.startTime
                 # Prepare data to send to Kafka
             self.runtime_data = {
+                    "Dataset_id": self.dataset_id,
+                    "Fraction": self.fraction,
+                    "Privacy_budget": self.privacy_budget,
+                    "Participant": self.num_clients,
                     "Actor": self.actor_id,
                     "StartTime":  self.startTime,
                     "EndTime": self.endTime,
@@ -379,7 +383,7 @@ class ALMActor:
                   self.logactor.log_stats(self.runtime_data)  
                   #self.producer.produce('AGM', value=json.dumps({'stats': self.runtime_data}).encode('utf-8'),callback=self.delivery_report) 
                   #self.producer.flush()
-                  logging.info("Save stats result to datastore %s",{'stats': {self.actor_id:self.runtime_data}}).encode('utf-8')
+                  #logging.info("Save stats result to datastore %s",{'stats': {self.actor_id:self.runtime_data}}).encode('utf-8')
         except Exception as e:
             logging.error("Error encrypting and sending result: %s", e)
 
