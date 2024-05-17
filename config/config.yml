@@ -3,5 +3,5 @@ clients:
 dataset:
   id: 45
   name: 'Heart Disease'
-privacy_budget: 4
+privacy_budget: 10
 fraction: 0.4

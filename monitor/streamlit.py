@@ -1,104 +1,70 @@
 import streamlit as st
 import redis
 import json
+import logging
+import altair as alt
+import pandas as pd
 
 # Connect to Redis
-redis_client = redis.StrictRedis(host='localhost', port=6379, db=0)
+try:
+    redis_client = redis.StrictRedis(host='datastore', port=6379, db=0)
+    logging.info("Redis connection successful: %s", redis_client.client_info())
+except Exception as e:
+    logging.error("Error connecting to Redis: %s", e)
 
-# Define the Streamlit app title and layout
-st.title("Real-time Data Stats")
+# Retrieve data from Redis
+data_stats_raw = redis_client.lrange('data_stats', 0, -1)
+data_quality_raw = redis_client.lrange('data_quality', 0, -1)
 
-# Update the real-time stats and F1-Measure
-@st.cache(ttl=5)  # Cache the function output for 5 seconds
-def update_stats():
-    # Retrieve data stats from Redis
-    data_stats = [json.loads(item) for item in redis_client.lrange('data_stats', 0, -1)]
-    
-    # Initialize lists to store data for plotting
-    actors = []
-    runtimes = []
+# Parse data into structured format
+data_stats = [json.loads(item.decode()) for item in data_stats_raw]
+data_quality = [json.loads(item.decode()) for item in data_quality_raw]
 
-    # Parse data and populate lists
-    for data in data_stats:
-        if data != {} and data is not None:
-            actors.append(data['Actor'])
-            runtimes.append(data['Runtime'])
+# Filter datasets by name
+dataset_names = set([data.get('Dataset_name') for data in data_stats if 'Dataset_name' in data])
+selected_dataset_name = st.selectbox("Select Dataset by Name", list(dataset_names))
 
-    # Calculate average runtime
-    average_runtime = sum(runtimes) / len(runtimes) if runtimes else 0
+filtered_data_stats = [data for data in data_stats if data.get('Dataset_name') == selected_dataset_name]
 
-    # Create figure for runtime graph
-    figure_runtime = {
-        'data': [
-            {
-                'x': actors,
-                'y': runtimes,
-                'type': 'bar',
-                'name': 'Runtime',
-                'marker': {'color': 'rgb(102, 178, 255)'},
-                'text': runtimes,
-                'textposition': 'auto'
-            },
-            {
-                'x': actors,
-                'y': [average_runtime] * len(actors),
-                'type': 'line',
-                'name': 'Average Runtime',
-                'mode': 'lines',
-                'line': {'dash': 'dash', 'color': 'blue'},
-                'text': ['Average Runtime'] * len(actors),
-                'textposition': 'top center'
-            }
-        ],
-        'layout': {
-            'title': 'Actor Runtimes',
-            'xaxis': {'title': 'Actor'},
-            'yaxis': {'title': 'Runtime (seconds)'}
-        }
-    }
+# Filter datasets by privacy budget
+privacy_budget_min = st.slider("Minimum Privacy Budget", min_value=0, max_value=10)
+privacy_budget_max = st.slider("Maximum Privacy Budget", min_value=0, max_value=10)
 
-    # Retrieve F1-measure data from Redis
-    f1_measure_data = [json.loads(item) for item in redis_client.lrange('data_quality', 0, -1)]
+filtered_data_stats = [data for data in filtered_data_stats if privacy_budget_min <= data.get('Privacy_budget') <= privacy_budget_max]
 
-    # Extract dataset IDs and F1-measures for the runtime chart
-    f1_measure_graphs = []
-    for data in f1_measure_data:
-        dataset_id = data['Dataset_id']
-        f1_measures = data['F1-score'] if 'F1-score' in data else []
-        
-        # Create a line graph for this dataset
-        if f1_measures:
-            figure_f1 = {
-                'data': [
-                    {
-                        'x': list(range(2, 10)),  # Privacy budgets (from 2 to 9)
-                        'y': f1_measures,
-                        'type': 'line',
-                        'mode': 'lines+markers',
-                        'name': f'Dataset {dataset_id}'
-                    }
-                ],
-                'layout': {
-                    'title': f'F1-Measure for Dataset {dataset_id}',
-                    'xaxis': {'title': 'Privacy Budget'},
-                    'yaxis': {'title': 'F1-Measure'}
-                }
-            }
-            f1_measure_graphs.append(figure_f1)
+# Display filtered dataset
+st.write("Filtered Dataset:")
+st.write(filtered_data_stats)
 
-    return figure_runtime, f1_measure_graphs
+# Visualization
+# Bar chart for runtime using Altair
+df_runtime = pd.DataFrame(filtered_data_stats)
+chart_runtime = alt.Chart(df_runtime).mark_bar().encode(
+    x=alt.X('Actor', title='Actor'),
+    y=alt.Y('Runtime', title='Runtime (seconds)'),
+    color=alt.Color('Actor', legend=None),
+    tooltip=['Actor', 'Runtime']
+).properties(
+    title='Runtime Statistics',
+    width=600,
+    height=400
+)
+st.altair_chart(chart_runtime, use_container_width=True)
 
-# Retrieve the updated stats and F1-Measure
-runtime_stats, f1_measure_graphs = update_stats()
-
-# Display the runtime graph
-st.subheader("Actor Runtimes")
-st.plotly_chart(runtime_stats)
-
-# Display the F1-Measure graphs
-for graph in f1_measure_graphs:
-    st.subheader(graph['layout']['title'])
-    st.plotly_chart(graph)
-
-# Display the Streamlit app
-st.write("Real-time Data Stats are updated every 5 seconds.")
+# Line chart for quality metrics
+selected_data_quality = [data for data in data_quality if data.get('Dataset_name') == selected_dataset_name]
+if selected_data_quality:
+    df_quality = pd.DataFrame(selected_data_quality)
+    chart_quality = alt.Chart(df_quality).mark_line().encode(
+        x=alt.X('index', title='Sample'),
+        y=alt.Y('F1-score', title='F1-score'),
+        color=alt.Color('Actor', legend=alt.Legend(title='Actor')),
+        tooltip=['index', 'F1-score', 'Precision', 'Recall']
+    ).properties(
+        title='Quality Metrics',
+        width=600,
+        height=400
+    )
+    st.altair_chart(chart_quality, use_container_width=True)
+else:
+    st.warning("No quality metrics available for the selected dataset.")

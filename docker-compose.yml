@@ -167,20 +167,20 @@ services:
     ports:
       - "8051:8051"
  
-  redis:
-    image: redis
-    hostname: datastore
-    container_name: datastore
-    ports:
-      - "6379:6379"
-    environment:
-      - REDIS_PASSWORD=mysecred
-      - REDIS_USER=fedfac 
-    networks:
-      - fedfca-netwrok
-    volumes:
-      - redis-data:/data  # Mount volume redis-data to container's /data directory
-    restart: always  # Restart the container automatically on failure
+  # redis:
+  #   image: redis
+  #   hostname: datastore
+  #   container_name: datastore
+  #   ports:
+  #     - "6379:6379"
+  #   environment:
+  #     - REDIS_PASSWORD=mysecred
+  #     - REDIS_USER=fedfac 
+  #   networks:
+  #     - fedfca-netwrok
+  #   volumes:
+  #     - redis-data:/data  # Mount volume redis-data to container's /data directory
+  #   restart: always  # Restart the container automatically on failure
 
 volumes:
   redis-data:  # Define the redis-data volume
