@@ -1,7 +1,7 @@
 clients:
   num_clients: 5
 dataset:
-  id: 45
-  name: 'Heart Disease'
-privacy_budget: 10
+  id: 2
+  name: 'Adult'
+privacy_budget: 8
 fraction: 0.4

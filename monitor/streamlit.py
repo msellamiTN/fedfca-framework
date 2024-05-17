@@ -39,6 +39,7 @@ st.write(filtered_data_stats)
 # Visualization
 # Bar chart for runtime using Altair
 df_runtime = pd.DataFrame(filtered_data_stats)
+df_runtime['Actor'] = df_runtime['Actor'].astype('category')  # Convert Actor to categorical data type
 chart_runtime = alt.Chart(df_runtime).mark_bar().encode(
     x=alt.X('Actor', title='Actor'),
     y=alt.Y('Runtime', title='Runtime (seconds)'),
@@ -55,11 +56,12 @@ st.altair_chart(chart_runtime, use_container_width=True)
 selected_data_quality = [data for data in data_quality if data.get('Dataset_name') == selected_dataset_name]
 if selected_data_quality:
     df_quality = pd.DataFrame(selected_data_quality)
+    df_quality['Sample'] = df_quality.index + 1  # Create a numerical index starting from 1
     chart_quality = alt.Chart(df_quality).mark_line().encode(
-        x=alt.X('index', title='Sample'),
+        x=alt.X('Sample', title='Sample'),
         y=alt.Y('F1-score', title='F1-score'),
-        color=alt.Color('Actor', legend=alt.Legend(title='Actor')),
-        tooltip=['index', 'F1-score', 'Precision', 'Recall']
+        color=alt.Color('Dataset_name', legend=alt.Legend(title='Dataset Name')),
+        tooltip=['Sample', 'F1-score', 'Precision', 'Recall']
     ).properties(
         title='Quality Metrics',
         width=600,
