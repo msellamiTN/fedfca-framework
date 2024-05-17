@@ -15,6 +15,7 @@ class FCLoader:
         self.dataset_id = dataset_id
         self.fraction = fraction
         self.dataset = fetch_ucirepo(id=self.dataset_id)
+        
 
     def load_data(self):
         # Load dataset from provided data

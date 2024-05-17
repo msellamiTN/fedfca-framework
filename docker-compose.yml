@@ -165,7 +165,7 @@ services:
     depends_on:
       - agm_actor
     ports:
-      - "8050:8050"
+      - "8051:8051"
  
   redis:
     image: redis

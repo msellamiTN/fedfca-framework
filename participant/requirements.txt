@@ -8,3 +8,4 @@ tenseal
 ucimlrepo
 pyyaml
 redis
+certifi
