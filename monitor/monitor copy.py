@@ -39,8 +39,7 @@ app.layout = html.Div([
         interval=5 * 1000,  # in milliseconds
         n_intervals=0
     ),
-    dcc.Graph(id='runtime-graph'),  # Graph for runtime by actor
-    dcc.Graph(id='f1-measure-graph')  # Graph for F1-measure by varying privacy budget
+    dcc.Graph(id='combined-graph'),  # Combined graph for runtime and F1-measure
 ])
 
 # Filter data by dataset ID
@@ -52,28 +51,35 @@ def filter_data_quality_by_dataset(dataset_id):
     data_quality = redis_client.lrange('data_quality', 0, -1)
     return [data for data in data_quality if json.loads(data.decode()).get('Dataset_id') == dataset_id]
 
-# Callback to update runtime graph for selected dataset
+# Callback to update combined graph for selected dataset
 @app.callback(
-    Output('runtime-graph', 'figure'),
+    Output('combined-graph', 'figure'),
     [Input('interval-component', 'n_intervals'), Input('dataset-dropdown', 'value')]
 )
-def update_runtime_graph(_n_intervals, selected_dataset_id):
+def update_graph(_n_intervals, selected_dataset_id):
     # Retrieve data for the chosen dataset
     data_stats = filter_data_stats_by_dataset(selected_dataset_id)
+    data_quality = filter_data_quality_by_dataset(selected_dataset_id)
 
     # Process data for plotting
     actors = []
     runtimes = []
+    privacy_budgets = []
+    f1_measures = []
     for data in data_stats:
         stats = json.loads(data.decode())
         if stats != {} and stats is not None:
             actors.append(stats['Actor'])
             runtimes.append(stats['Runtime'])
+    for data in data_quality:
+        data = json.loads(data.decode())
+        privacy_budgets.append(data['Privacy_budget'])
+        f1_measures.append(data['F1-score'])
 
     # Calculate average runtime (if data exists)
     average_runtime = sum(runtimes) / len(runtimes) if runtimes else 0
 
-    # Create figure for runtime graph
+    # Create combined figure
     figure = {
         'data': [
             {
@@ -86,60 +92,22 @@ def update_runtime_graph(_n_intervals, selected_dataset_id):
                 'textposition': 'auto'
             },
             {
-                'x': actors,
-                'y': [average_runtime] * len(actors),
-                'type': 'line',
-                'name': 'Average Runtime',
-                'mode': 'lines',
-                'line': {'dash': 'dash', 'color': 'blue'},
-                'text': ['Average Runtime'] * len(actors),
-                'textposition': 'top center'
-            }
-        ],
-        'layout': {
-            'title': f'Dataset {selected_dataset_id} Runtime by Actor',
-            'xaxis': {'title': 'Actor'},
-            'yaxis': {'title': 'Runtime (seconds)'}
-        }
-    }
-
-    return figure
-
-# Callback to update F1-measure graph for selected dataset
-@app.callback(
-    Output('f1-measure-graph', 'figure'),
-    [Input('interval-component', 'n_intervals'), Input('dataset-dropdown', 'value')]
-)
-def update_f1_measure_graph(_n_intervals, selected_dataset_id):
-    # Retrieve data for the chosen dataset
-    data_quality = filter_data_quality_by_dataset(selected_dataset_id)
-
-    # Process data for plotting
-    privacy_budgets = []
-    f1_measures = []
-    for data in data_quality:
-        data = json.loads(data.decode())
-        privacy_budgets.append(data['Privacy_budget'])
-        f1_measures.append(data['F1-score'])
-
-    # Create figure for F1-measure graph
-    figure = {
-        'data': [
-            {
                 'x': privacy_budgets,
                 'y': f1_measures,
                 'type': 'line',
                 'name': 'F1-Measure',
                 'mode': 'lines+markers',
+                'yaxis': 'y2',
                 'line': {'dash': 'dash', 'color': 'orange'},
                 'text': f1_measures,
                 'textposition': 'top center'
             }
         ],
         'layout': {
-            'title': f'Dataset {selected_dataset_id} F1-Measure by Privacy Budget',
-            'xaxis': {'title': 'Privacy Budget'},
-            'yaxis': {'title': 'F1-Measure'}
+            'title': f'Dataset {selected_dataset_id} Stats',
+            'xaxis': {'title': 'Actor'},
+            'yaxis': {'title': 'Runtime (seconds)', 'showgrid': False},
+            'yaxis2': {'title': 'F1-Measure', 'overlaying': 'y', 'anchor': 'x'}  # Align F1-measure axis
         }
     }
 

@@ -13,41 +13,58 @@ import pandas as pd
 import numpy as np
 import time
 from logactor import LoggerActor
+import requests
+ 
+import requests
 
 class FCLoader:
-    def __init__(self, dataset_id, fraction):
-        self.dataset_id = dataset_id
+    def __init__(self, dataset_url, dataset_name, fraction=1.0):
+        self.dataset_url = dataset_url
+        self.dataset_name = dataset_name
         self.fraction = fraction
-        self.dataset = fetch_ucirepo(id=self.dataset_id)
+        self.dataset = self.load_data_from_url(self.dataset_url + self.dataset_name)
+
+    def load_data_from_url(self, url):
+        # Fetch data from URL and load into pandas DataFrame
+        response = requests.get(url)
+        data = response.content.decode("utf-8")
+
+        # Load dataset (text file) with transactions
+        transactions = [line.strip().split() for line in data.splitlines()]
+        return transactions
 
     def load_data(self):
-        # Load dataset from provided data
-        df = self.dataset.data.features
-        # Sample a subset of the dataset randomly based on the fraction
-         # sampled_df = df.sample(frac=self.fraction, random_state=42)
-        return df
+        # Load dataset from the URL-based data
+        transactions = self.dataset  # List of transactions (each transaction is a list of items)
+        
+        # Optionally, sample a subset of the dataset randomly based on the fraction
+        sampled_transactions = transactions[:int(len(transactions) * self.fraction)]
+        return sampled_transactions
 
-    def construct_formal_context(self, df, selected_attributes):
-        # Extract unique values for each selected attribute to form the attribute list
-        attribute_values = {attr: set(df[attr]) for attr in selected_attributes}
+    def construct_formal_context(self, transactions):
+        # Get all unique items (attributes) across all transactions
+        items = set(item for transaction in transactions for item in transaction)
+        attribute_list = sorted(items)  # List of attributes (sorted for consistency)
 
-        # Flatten and sort the attribute list for consistency
-        attribute_list = sorted([f"{attr}={val}" for attr, values in attribute_values.items() for val in values])
+        # Initialize the binary matrix and formal context dictionary
+        matrix = []
+        formal_context = {}
 
-        # Initialize the binary matrix
-        matrix = [[False for _ in attribute_list] for _ in range(len(df))]
+        # For each transaction, create a binary row and add to the formal context
+        for idx, transaction in enumerate(transactions):
+            row = [item in transaction for item in attribute_list]
+            matrix.append(row)
+            
+            # Add transaction to formal_context dictionary format
+            formal_context[idx + 1] = set(transaction)
 
-        # Populate the binary matrix
-        for i, row in df.iterrows():
-            for j, attribute in enumerate(attribute_list):
-                attr, val = attribute.split('=')
-                if row[attr] == val:
-                    matrix[i][j] = True
+        # Define objects as indices of the transactions
+        objects = list(range(len(transactions)))
 
-        # Define objects as indices of the DataFrame entries
-        objects = list(df.index)
+        # Return both formats
+        logging.info('formal_context %s',formal_context)
+        return objects, attribute_list, matrix, formal_context
 
-        return objects, attribute_list, matrix
 
 
 random.seed(42)
@@ -124,7 +141,7 @@ def faster_algorithm(obj, attr, aMat):
         def generate_lattice(bCList):
             G = nx.Graph()
             for concept in bCList:
-                logging.info("concept : %s",concept)
+                #logging.info("concept : %s",concept)
                 extent, intent = concept
                 node_name = "(" + ", ".join(str(m) for m in extent) + "), (" + ", ".join(str(m) for m in intent) + ")"
                 G.add_node(node_name)
@@ -266,7 +283,11 @@ class ALMActor:
         self.encryptedlattice=None
         self.runtime_data={}
         self.cipher_suite = None
-        self.producer = Producer({'bootstrap.servers': kafka_servers})
+        self.producer = Producer(
+            {'bootstrap.servers': kafka_servers,
+             'message.max.bytes' : 10485880 # Set to match or be slightly below broker's message.max.bytes                     
+                                  
+                                  })
         self.consumer = Consumer({
             'bootstrap.servers': kafka_servers,
             'group.id': 'alm_group',
@@ -277,7 +298,8 @@ class ALMActor:
         with open(self.config_file, 'r') as f:
             config = yaml.safe_load(f)
         self.num_clients = config['clients']['num_clients']
-        self.dataset_id = config['dataset']['id']
+        self.dataset_id = config['dataset']['name']
+        self.dataset_url=config['dataset']['url']
         self.fraction = config['fraction']
         self.privacy_budget = config['privacy_budget']
     def set_key(self, key):
@@ -325,23 +347,21 @@ class ALMActor:
     def build_lattice(self):
         try:
             logging.info("dataset_id: %s", self.dataset_id)
-            loader = FCLoader(self.dataset_id, self.fraction)
-            df = loader.load_data()
-            selected_attributes = df.columns
-            logging.info("selected_attributes: %s ", df.columns)
-            objects, attributes, matrix = loader.construct_formal_context(df, selected_attributes)
+            loader = FCLoader(self.dataset_url, self.dataset_id, self.fraction)
+            transactions = loader.load_data()
+            objects, attributes, matrix, formal_context = loader.construct_formal_context(transactions)
             # The objects, attributes, and matrix variables now contain the formal context.
              
-            logging.info("Objects: %s ", objects)
-            logging.info("Attributes: %s", attributes)
-            logging.info("Matrix: %s ", matrix)
+            logging.info("Objects: %s ", type(objects))
+            logging.info("Attributes: %s",  type(attributes))
+            logging.info("Formal Context: %s ", type(formal_context))
             logging.info("Begin Lattice Buidding:")
             local_server = CentralizedLatticeBuilder(objects, attributes, matrix)
             local_server.generate_lattice()
             logging.info("End Lattice Buidding:")
           
             self.encryptedlattice = local_server.encrypt_data(str(local_server.lattice).encode(), self.key)
-            logging.info("lattice: %s ", self.encryptedlattice)
+            logging.info("lattice: %s ", type(self.encryptedlattice))
             logging.info("Begin Encrypting and sending result")
             self.encrypt_and_send_result()
             logging.info("End Encrypting and sending result")

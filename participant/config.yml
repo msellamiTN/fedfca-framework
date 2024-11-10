@@ -4,3 +4,4 @@ dataset:
   id: 1
 privacy_budget: 0.4
 fraction: 0.4
+sample_fraction: 0.04

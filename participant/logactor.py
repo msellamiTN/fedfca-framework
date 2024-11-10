@@ -14,6 +14,7 @@ class LoggerActor:
         self.stats={}
 
     def log_stats(self,stats):
+        
         redis_client.rpush('data_stats', json.dumps(stats))
         logging.info("data_stats is saved : %s", stats)
 

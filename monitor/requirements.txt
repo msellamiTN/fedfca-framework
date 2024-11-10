@@ -9,3 +9,5 @@ plotly
 gunicorn
 flask
 redis 
+requests
+scipy

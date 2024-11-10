@@ -9,39 +9,51 @@ import pandas as pd
 from ucimlrepo import fetch_ucirepo
 import yaml
 import time
+import itertools
+import random
 from logactor import LoggerActor
+from qualityactor import ConceptStabilityAnalyzer
+import requests
 class FCLoader:
-    def __init__(self, dataset_id, fraction):
-        self.dataset_id = dataset_id
+    def __init__(self, dataset_id,dataset_url, fraction=1.0):
+        self.dataset_url = dataset_url
+        self.dataset_name=dataset_id
         self.fraction = fraction
-        self.dataset = fetch_ucirepo(id=self.dataset_id)
+        self.dataset = self.load_data_from_url(self.dataset_url+self.dataset_name)
+
+    def load_data_from_url(self, url):
+        # Fetch data from URL and load into pandas DataFrame
+        response = requests.get(url)
+        data = response.content.decode("utf-8")
+
+
+        # Load dataset (text file) with transactions
+        transactions = [line.strip().split() for line in data.splitlines()]
+        return transactions
 
     def load_data(self):
-        # Load dataset from provided data
-        df = self.dataset.data.features
-        # Sample a subset of the dataset randomly based on the fraction
-        sampled_df = df.sample(frac=self.fraction, random_state=42)
-        return sampled_df
+        # Load dataset from the URL-based data
+        transactions = self.dataset  # List of transactions (each transaction is a list of items)
+        
+        # Optionally, sample a subset of the dataset randomly based on the fraction
+        sampled_transactions = transactions[:int(len(transactions) * self.fraction)]
+        return sampled_transactions
 
-    def construct_formal_context(self, df, selected_attributes):
-        # Extract unique values for each selected attribute to form the attribute list
-        attribute_values = {attr: set(df[attr]) for attr in selected_attributes}
-
-        # Flatten and sort the attribute list for consistency
-        attribute_list = sorted([f"{attr}={val}" for attr, values in attribute_values.items() for val in values])
+    def construct_formal_context(self, transactions):
+        # Get all unique items (attributes) across all transactions
+        items = set(item for transaction in transactions for item in transaction)
+        attribute_list = sorted(items)  # List of attributes (sorted for consistency)
 
         # Initialize the binary matrix
-        matrix = [[False for _ in attribute_list] for _ in range(len(df))]
+        matrix = []
+        
+        # For each transaction, create a binary row (True if item is present, False if not)
+        for transaction in transactions:
+            row = [item in transaction for item in attribute_list]
+            matrix.append(row)
 
-        # Populate the binary matrix
-        for i, row in df.iterrows():
-            for j, attribute in enumerate(attribute_list):
-                attr, val = attribute.split('=')
-                if row[attr] == val:
-                    matrix[i][j] = True
-
-        # Define objects as indices of the DataFrame entries
-        objects = list(df.index)
+        # Define objects as indices of the transactions
+        objects = list(range(len(transactions)))
 
         return objects, attribute_list, matrix
 
@@ -119,8 +131,9 @@ def faster_algorithm(obj, attr, aMat):
         def generate_lattice(bCList):
             G = nx.Graph()
             for concept in bCList:
-                logging.info("concept : %s",concept)
+                logging.info("concept : %s",type(concept))
                 extent, intent = concept
+                
                 node_name = "(" + ", ".join(str(m) for m in extent) + "), (" + ", ".join(str(m) for m in intent) + ")"
                 G.add_node(node_name)
 
@@ -179,6 +192,9 @@ def randomized_response(original_value, epsilon):
         return random.random() >= p
 
 
+
+
+
 def apply_aldp_to_context(objects, attributes, matrix, context_sensitivity):
     try:
         noisy_matrix = []
@@ -221,7 +237,7 @@ class EncryptedLocalServer(LocalServer):
             self.noisy_objects, self.noisy_attributes, self.noisy_matrix
         )
         return lattice
-
+    
     def encrypt_data(self, data, key):
         cipher_suite = Fernet(key)
         encrypted_data = cipher_suite.encrypt(data)
@@ -241,9 +257,10 @@ class ALMActor:
         self.kafka_servers = kafka_servers
         self.config_file = "/data/config.yml"
         self.load_config()
-        
+        self.quality_mertics={}
         self.actor_id = actor_id if actor_id else socket.gethostname()
         self.logactor= LoggerActor(self.actor_id)
+        self.quality=ConceptStabilityAnalyzer()
         self.data=f"No Data from {self.actor_id}"
         self.key = None  # Initialize key as None
         self.context_sensitivity=0.8 
@@ -253,7 +270,13 @@ class ALMActor:
         self.endTime=None
         self.RunTime=None
         self.runtime_data={}
-        self.producer = Producer({'bootstrap.servers': kafka_servers})
+        self.stability={}
+        self.sample_fraction=0.04 #default
+        self.producer = Producer(
+            {'bootstrap.servers': kafka_servers,
+             'message.max.bytes' : 10485880 # Set to match or be slightly below broker's message.max.bytes                     
+                                  
+                                  })
         self.consumer = Consumer({
             'bootstrap.servers': kafka_servers,
             'group.id': 'alm_group',
@@ -263,14 +286,54 @@ class ALMActor:
     def load_config(self):
         with open(self.config_file, 'r') as f:
             config = yaml.safe_load(f)
+        self.sample_fraction=config['sample_fraction']
         self.num_clients = config['clients']['num_clients']
-        self.dataset_id = config['dataset']['id']
+        self.dataset_id = config['dataset']['name']
+        self.dataset_url=config['dataset']['url']
         self.fraction = config['fraction']
         self.privacy_budget = config['privacy_budget']
         self.context_sensitivity= config['privacy_budget']
     def set_key(self, key):
         self.key = key.encode('utf-8')  # Convert the key to bytes
         self.cipher_suite = Fernet(self.key)
+    def calculate_stability(self,lattice, sample_fraction=0.01):
+        """
+        Calculate the approximate stability of each concept.
+        
+        Parameters:
+            self
+            concepts (list): List of tuples, each representing (extent, intent) of a concept.
+            sample_fraction (float): Fraction of subsets to sample for stability.
+        
+        Returns:
+            list: Stability scores for each concept.
+        """
+        logging.info("Begin Stability Calculation")
+        stability_scores = []
+        try:
+            for concept in lattice:
+                extent, intent = concept
+                logging.info("%s",(extent,intent))
+                # Calculate the total possible subsets of extent
+                subset_count = 2 ** len(extent)
+                sampled_count = int(subset_count * self.sample_fraction)
+                valid_subset_count = 0
+
+                # Generate and sample subsets of extent
+                all_subsets = list(itertools.chain.from_iterable(itertools.combinations(extent, r) for r in range(len(extent) + 1)))
+                sampled_subsets = random.sample(all_subsets, min(sampled_count, len(all_subsets)))
+
+                # Count valid subsets (all sampled subsets are considered valid in this simplified version)
+                valid_subset_count = len(sampled_subsets)  # Assuming intent is always valid for simplicity
+                
+                # Calculate stability for this concept
+                stability = valid_subset_count / subset_count
+                logging.info("stability:%s",stability)
+                stability_scores.append(stability)
+        except Exception as e:
+            logging.error('Error stability calculation: %s', e)        
+
+        return stability_scores
     def handle_message(self, message):
         try:
             
@@ -287,12 +350,19 @@ class ALMActor:
                 self.endTime= time.time()
                 self.RunTime = self.endTime -  self.startTime
                 # Prepare data to send to Kafka
+                  # Prepare data to send to Kafka
                 self.runtime_data = {
-                    "Actor": self.actor_id,
-                    "StartTime":  self.startTime,
-                    "EndTime": self.endTime,
-                    "Runtime": self.RunTime
-                }
+                        "Dataset_id": self.dataset_id,
+                        "Fraction": self.fraction,
+                        "Privacy_budget": self.privacy_budget,
+                        "Participant": self.num_clients,
+                        "Actor": self.actor_id,
+                        "StartTime":  self.startTime,
+                        "EndTime": self.endTime,
+                        "Runtime": self.RunTime,
+                        "quality_mertics": self.quality_mertics
+
+                    }
                 logging.info("runtime :%s",self.runtime_data)
         except Exception as e:
             logging.error('Error handling message: %s', e)
@@ -308,19 +378,22 @@ class ALMActor:
         try:
             self.startTime = time.time()
             logging.info("dataset_id: %s", self.dataset_id)
-            loader = FCLoader(self.dataset_id, self.fraction)
-            df = loader.load_data()
-            selected_attributes = df.columns
-            logging.info("selected_attributes: %s ", df.columns)
-            objects, attributes, matrix = loader.construct_formal_context(loader.dataset.data.features, selected_attributes)
+            loader = FCLoader(self.dataset_id,self.dataset_url, self.fraction)
+            transactions = loader.load_data()
+            objects, attributes, matrix = loader.construct_formal_context(transactions)
+            self.quality.objects=objects
+            self.quality.attributes=attributes
+            self.quality.I = matrix
             # The objects, attributes, and matrix variables now contain the formal context.
              
-            logging.info("Objects: %s ", objects)
-            logging.info("Attributes: %s", attributes)
-            logging.info("Matrix: %s ", matrix)
+            logging.info("Objects: %s ", type(objects))
+            logging.info("Attributes: %s", type(attributes))
+            logging.info("Formal Context: %s ", type(matrix))
             logging.info("Begin Lattice Buidding: %s")
             local_server = EncryptedLocalServer(objects, attributes, matrix, self.privacy_budget)
             lattice=local_server.create_perturbated_lattice()
+            #self.quality_mertics=self.quality.calculate_quality(lattice)
+
             logging.info("End Lattice Buidding: %s")
             logging.info("lattice: %s ", lattice)
             self.encryptedlattice = local_server.encrypt_data(str(lattice).encode(), self.key)
@@ -336,7 +409,9 @@ class ALMActor:
                     "Actor": self.actor_id,
                     "StartTime":  self.startTime,
                     "EndTime": self.endTime,
-                    "Runtime": self.RunTime
+                    "Runtime": self.RunTime,
+                    "quality_mertics":   self.quality_mertics
+
                 }
             logging.info("runtime :%s",self.runtime_data)
             self.encrypt_and_send_result()

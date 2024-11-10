@@ -280,10 +280,19 @@ class AGMActor:
         self.fca_lattice = None
         self.global_lattice=None
         self.context_sensitivity=context_sensitivity
-        self.producer = Producer({'bootstrap.servers': kafka_servers})
+        self.producer = Producer(
+            {'bootstrap.servers': kafka_servers,
+             'message.max.bytes' : 10485880 # Set to match or be slightly below broker's message.max.bytes                     
+                                  
+                                  })
         self.consumer = Consumer({
             'bootstrap.servers': kafka_servers,
             'group.id': 'agm_group',
+            'fetch.max.bytes': 10485000,
+            'receive.message.max.bytes': 10486000,  # Setting a larger buffer than fetch.max.bytes
+            'session.timeout.ms': 30000,         # Set to 30 seconds for flexible failure detection
+            'heartbeat.interval.ms': 10000,      # Heartbeat every 10 seconds (should be much less than session timeout)
+            'max.poll.interval.ms': 600000,
             'auto.offset.reset': 'earliest',
             'client.id': socket.gethostname()
         })
@@ -298,7 +307,8 @@ class AGMActor:
         with open(self.config_file, 'r') as f:
             config = yaml.safe_load(f)
         self.num_clients = config['clients']['num_clients']
-        self.dataset_id = config['dataset']['id']
+        self.dataset_id = config['dataset']['name']
+        self.dataset_url = config['dataset']['url']
         self.fraction = config['fraction']
         self.privacy_budget = config['privacy_budget']    
     def config_topics(self):
@@ -605,17 +615,33 @@ class AGMActor:
 
     def run(self):
         while True:
-            msg = self.consumer.poll(1.0)
-            if msg is None:
-                continue
-            if msg.error():
-                if msg.error().code() == KafkaError._PARTITION_EOF:
-                    continue
-                else:
-                    logging.error("Consumer error: %s", msg.error())
-                    continue
-            self.handle_message(msg)
+            try:
+                # Polling with timeout of 1 second (adjustable based on use case)
+                msg = self.consumer.poll(timeout=100.0)  # Timeout is in seconds
 
+                if msg is None:
+                    # No new message received within the timeout, continue the loop
+                    continue
+
+                if msg.error():
+                    # If there is an error, check if it's EOF (End of File) or another error
+                    if msg.error().code() == KafkaError._PARTITION_EOF:
+                        logging.info(f"Reached end of partition {msg.partition} at offset {msg.offset()}")
+                        continue  # Continue polling after EOF error, no processing needed for EOF
+                    else:
+                        # Log other Kafka errors
+                        logging.error("Consumer error: %s", msg.error())
+                        continue  # Skip processing and continue the loop
+
+                # Message received successfully, handle it
+                self.handle_message(msg)
+
+            except Exception as e:
+                # Log any unexpected errors in the polling or message handling
+                logging.error(f"Unexpected error while consuming messages: {e}")
+
+            # Optionally, you can add a sleep to avoid overwhelming the CPU
+            # time.sleep(1)
 if __name__ == "__main__":
     kafka_servers = 'PLAINTEXT://kafka-1:19092,PLAINTEXT://kafka-2:19093,PLAINTEXT://kafka-3:19094'
     logging.basicConfig(level=logging.INFO)

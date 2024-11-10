@@ -116,31 +116,31 @@ services:
       - agm_actor
     volumes:
       - "./config/:/data"
-  alm_actor4:
-    build:
-      context: ./participant
-      #dockerfile: DockerfileALMActor
-    hostname: alm_actor4
-    container_name: alm_actor4
-    networks:
-      - fedfca-netwrok
-    depends_on:
-      - agm_actor
-    volumes:
-      - "./config/:/data"
+  # alm_actor4:
+  #   build:
+  #     context: ./participant
+  #     #dockerfile: DockerfileALMActor
+  #   hostname: alm_actor4
+  #   container_name: alm_actor4
+  #   networks:
+  #     - fedfca-netwrok
+  #   depends_on:
+  #     - agm_actor
+  #   volumes:
+  #     - "./config/:/data"
       
-  alm_actor5:
-    build:
-      context: ./participant
-      #dockerfile: DockerfileALMActor
-    hostname: alm_actor5
-    container_name: alm_actor5
-    networks:
-      - fedfca-netwrok
-    depends_on:
-      - agm_actor
-    volumes:
-      - "./config/:/data"
+  # alm_actor5:
+  #   build:
+  #     context: ./participant
+  #     #dockerfile: DockerfileALMActor
+  #   hostname: alm_actor5
+  #   container_name: alm_actor5
+  #   networks:
+  #     - fedfca-netwrok
+  #   depends_on:
+  #     - agm_actor
+  #   volumes:
+  #     - "./config/:/data"
 
   fca_actor:
     build:

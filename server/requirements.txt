@@ -8,3 +8,5 @@ tenseal
 ucimlrepo
 pyyaml
 redis
+requests
+scipy
