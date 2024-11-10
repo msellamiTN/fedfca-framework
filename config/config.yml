@@ -1,5 +1,6 @@
 clients:
   num_clients: 5
+  num_clients: 5
 dataset:
   url: 'http://fimi.uantwerpen.be/data/'
   name : 'mushroom.dat'
