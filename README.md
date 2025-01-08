@@ -457,7 +457,7 @@ We would like to thank the following contributors and organizations for their su
 
 For questions, feedback, or collaboration opportunities, please contact:
 
-**Mohamed Sellami**  
+**Mokhtar Sellami**  
 Email: msellami@example.com  
 GitHub: [msellamiTN](https://github.com/msellamiTN)
 
