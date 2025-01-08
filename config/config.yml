@@ -1,8 +1,8 @@
 clients:
   num_clients: 5
 dataset:
-  url: 'http://fimi.uantwerpen.be/data/'
-  name : 'mushroom.dat'
+  url: 'https://raw.githubusercontent.com/msellamiTN/fedfca-framework/refs/heads/main/data/'
+  name : 'dataset_200_10_8.data'
 privacy_budget: 2
 fraction: 0.4
 sample_fraction: 0.5

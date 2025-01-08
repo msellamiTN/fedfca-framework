@@ -14,8 +14,6 @@ import numpy as np
 import time
 from logactor import LoggerActor
 import requests
- 
-import requests
 
 class FCLoader:
     def __init__(self, dataset_url, dataset_name, fraction=1.0):

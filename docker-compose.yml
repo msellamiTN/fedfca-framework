@@ -68,6 +68,16 @@ services:
       - fedfca-netwrok
     volumes:
       - "./config/:/data" 
+    deploy:
+      resources:
+        limits:
+          cpus: '8.0'      # Allocate up to 8 vCPUs
+          memory: 4G       # Allocate up to 4 GB of RAM; adjust as needed
+    logging:
+      options:
+        max-size: "10m"    # Rotate logs to control file size
+        max-file: "3"
+    
   # agg_actor:
   #   build:
   #     context: ./api
@@ -104,18 +114,18 @@ services:
       - agm_actor
     volumes:
       - "./config/:/data"
-  alm_actor3:
-    build:
-      context: ./participant
-      #dockerfile: DockerfileALMActor
-    hostname: alm_actor3
-    container_name: alm_actor3
-    networks:
-      - fedfca-netwrok
-    depends_on:
-      - agm_actor
-    volumes:
-      - "./config/:/data"
+  # alm_actor3:
+  #   build:
+  #     context: ./participant
+  #     #dockerfile: DockerfileALMActor
+  #   hostname: alm_actor3
+  #   container_name: alm_actor3
+  #   networks:
+  #     - fedfca-netwrok
+  #   depends_on:
+  #     - agm_actor
+  #   volumes:
+  #     - "./config/:/data"
   # alm_actor4:
   #   build:
   #     context: ./participant

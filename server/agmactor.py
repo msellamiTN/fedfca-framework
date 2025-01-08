@@ -11,6 +11,10 @@ import ast
 from collections import Counter
 import time
 from logactor import LoggerActor
+from concurrent.futures import ThreadPoolExecutor
+import logging
+ 
+
 class GlobalServer:
     def __init__(self):
         self.decrypted_lattices = []
@@ -33,7 +37,6 @@ class EncryptedGlobalServer(GlobalServer):
             return 0
     def get_infimum_concept(self):
         try:
-
             if self.objects is not None and self.attributes is not None and self.decrypted_lattices:
                 infimum_objs = None
                 infimum_attrs = set()
@@ -49,20 +52,19 @@ class EncryptedGlobalServer(GlobalServer):
                         infimum_objs = list(set(infimum_objs) & set(concept[0]))
                         infimum_attrs = infimum_attrs.union(set(concept[1]))
 
+                logging.info(f"Calculated infimum concept: {infimum_objs}, {infimum_attrs}")
                 return infimum_objs, list(infimum_attrs)
             else:
+                logging.warning("Infimum concept calculation skipped due to missing data.")
                 return None
         except Exception as e:
-            logging.error("error computing infimum :%s",e)
-
-
+            logging.error("Error computing infimum: %s", e)
 
     def get_supremum_concept(self):
         try:
             if self.objects is not None and self.attributes is not None and self.decrypted_lattices:
                 supremum_objs = set()
                 supremum_attrs = None
-
                 max_objects = 0
                 for lattice in self.decrypted_lattices:
                     for concept in lattice:
@@ -70,96 +72,77 @@ class EncryptedGlobalServer(GlobalServer):
                         if num_objects > max_objects:
                             max_objects = num_objects
                             supremum_objs, supremum_attrs = set(concept[0]), concept[1]
-
                 for lattice in self.decrypted_lattices:
                     for concept in lattice:
                         supremum_objs = supremum_objs.union(set(concept[0]))
                         supremum_attrs = list(set(supremum_attrs) & set(concept[1]))
 
+                logging.info(f"Calculated supremum concept: {supremum_objs}, {supremum_attrs}")
                 return list(supremum_objs), supremum_attrs
             else:
+                logging.warning("Supremum concept calculation skipped due to missing data.")
                 return None
         except Exception as e:
-            logging.error("error computing suprremum :%s",e)
+            logging.error("Error computing supremum: %s", e)
+
     def union_decrypted_lattices(self):
-        """
-            Combines decrypted lattices using supremum and infimum calculations,
-            respecting lattice theory principles.
+        try:
+            logging.info('Begin Lattice Building')
 
-            Returns:
-                A list of unique concept pairs (intent, extent) representing the combined lattice.
-        """
-        # try:
-        # Use a set for efficient membership checking
-        flattened_list = [item for sublist in self.decrypted_lattices for item in sublist]
-         
-        unique_concepts = []
-        formatted_result =[]
-        logging.info("global lattice:%s",flattened_list)
-        # Infimum and supremum (can be pre-calculated if known)
-        infimum_concept = self.get_infimum_concept()
-        supremum_concept = self.get_supremum_concept()
-        
-        unique_concepts.append(infimum_concept)
-        unique_concepts.append(supremum_concept)
+            if not self.decrypted_lattices or not all(isinstance(lattice, list) for lattice in self.decrypted_lattices):
+                logging.error("Invalid or empty decrypted lattices data structure.")
+                return None
 
-        for concept in flattened_list:
-            logging.info("concept :%s", concept)
-            for other_concept in unique_concepts.copy():  # Iterate over a copy to avoid modification issues
-                if concept != other_concept:
+            flattened_list = [item for sublist in self.decrypted_lattices for item in sublist]
+            unique_concepts = set()
+
+            infimum_concept = self.get_infimum_concept()
+            supremum_concept = self.get_supremum_concept()
+
+            if infimum_concept is None or supremum_concept is None:
+                logging.error("Infimum or Supremum concept is None. Check data.")
+                return None
+
+            unique_concepts.add((tuple(infimum_concept[0]), tuple(infimum_concept[1])))
+            unique_concepts.add((tuple(supremum_concept[0]), tuple(supremum_concept[1])))
+
+            for concept in flattened_list:
+                concept_tuple = (tuple(concept[0]), tuple(concept[1]))
+                if concept_tuple in unique_concepts:
+                    continue
+
+                for other_concept in list(unique_concepts):
+                    if concept == other_concept:
+                        continue
+
                     supremum = self.calculate_supremum(concept, other_concept)
                     infimum = self.calculate_infimum(concept, other_concept)
 
-                # Option 1: Convert extents (concept[1]) to tuples before adding to set (preferred)
-                if supremum not in unique_concepts and supremum != infimum:
-                    unique_concepts.append((concept[0], tuple(supremum[1])))
+                    if supremum and infimum:
+                        sup_tuple = (tuple(supremum[0]), tuple(supremum[1]))
+                        inf_tuple = (tuple(infimum[0]), tuple(infimum[1]))
 
-                if infimum not in unique_concepts and infimum != supremum:
-                    unique_concepts.append((concept[0], tuple(infimum[1])))
+                        if sup_tuple not in unique_concepts and supremum != infimum:
+                            unique_concepts.add(sup_tuple)
+                        if inf_tuple not in unique_concepts and infimum != supremum:
+                            unique_concepts.add(inf_tuple)
 
-                # Option 2: Modify unique_concepts to hold entire concept tuples (if separate intent/extent not needed)
-                # unique_concepts = set(self.decrypted_lattices)  # concepts is a list of concept tuples
+            formatted_result = list(unique_concepts)
+            logging.info(f"Final global lattice: {formatted_result}")
+            return formatted_result
 
-        # Convert set of concepts to formatted list
-        formatted_result =(unique_concepts)
-        print(f"global lattice ssss:{formatted_result}")
-        return formatted_result
-    # except Exception as e:
-    #     logging.error("error lattice aggregator :%s", e)
+        except Exception as e:
+            logging.error("Error in lattice aggregator: %s", e)
 
- 
- 
     def calculate_supremum(self, concept1, concept2):
-        """
-        Calculates the supremum (least upper bound) of two concepts.
-
-        Args:
-            concept1: A concept represented as a tuple (intent, extent).
-            concept2: A concept represented as a tuple (intent, extent).
-
-        Returns:
-            The supremum concept (intent, extent).
-        """
-        intent_sup = set(concept1[0]) | set(concept2[0])  # Union of intents
-        extent_sup = [obj for obj in self.objects if obj in concept1[1] or obj in concept2[1]]  # Intersection of extents
-    
-        return (list(intent_sup), extent_sup)
+        intent_sup = set(concept1[0]) | set(concept2[0])
+        extent_sup = [obj for obj in self.objects if obj in concept1[1] or obj in concept2[1]]
+        return list(intent_sup), extent_sup
 
     def calculate_infimum(self, concept1, concept2):
-        """
-        Calculates the infimum (greatest lower bound) of two concepts.
-
-        Args:
-            concept1: A concept represented as a tuple (intent, extent).
-            concept2: A concept represented as a tuple (intent, extent).
-
-        Returns:
-            The infimum concept (intent, extent).
-        """
-        intent_inf = list(set(concept1[0]) & set(concept2[0]))  # Intersection of intents
-        extent_inf = [obj for obj in concept1[1] if obj in concept2[1]]  # Intersection of extents
-        return (intent_inf, extent_inf)
-    
+        intent_inf = set(concept1[0]) & set(concept2[0])
+        extent_inf = [obj for obj in concept1[1] if obj in concept2[1]]
+        return list(intent_inf), extent_inf
     def compute_f1_score4(self):
       """
       Computes the F1 score between a generated lattice and a ground truth FCA lattice.
@@ -260,7 +243,8 @@ class EncryptedGlobalServer(GlobalServer):
         local_server.receive_globallattice(encrypted_glattice)
         
 class AGMActor:
-    def __init__(self, kafka_servers,context_sensitivity):
+    def __init__(self, kafka_servers,context_sensitivity,max_workers=10):
+        self.executor = ThreadPoolExecutor(max_workers=max_workers)  # Thread pool for concurrent processing
         self.config_file = "/data/config.yml"
         self.dataset_id =  None
         self.fraction = None
@@ -289,10 +273,10 @@ class AGMActor:
             'bootstrap.servers': kafka_servers,
             'group.id': 'agm_group',
             'fetch.max.bytes': 10485000,
-            'receive.message.max.bytes': 10486000,  # Setting a larger buffer than fetch.max.bytes
-            'session.timeout.ms': 30000,         # Set to 30 seconds for flexible failure detection
-            'heartbeat.interval.ms': 10000,      # Heartbeat every 10 seconds (should be much less than session timeout)
-            'max.poll.interval.ms': 600000,
+            #'receive.message.max.bytes': 10486000,  # Setting a larger buffer than fetch.max.bytes
+            # 'session.timeout.ms': 30000,         # Set to 30 seconds for flexible failure detection
+            # 'heartbeat.interval.ms': 10000,      # Heartbeat every 10 seconds (should be much less than session timeout)
+            # 'max.poll.interval.ms': 600000,
             'auto.offset.reset': 'earliest',
             'client.id': socket.gethostname()
         })
@@ -514,7 +498,7 @@ class AGMActor:
             # Example usage
             try:
                     
-                logging.info(f"{len (self.global_server.decrypted_lattices) } from: % s",self.num_clients)
+                #logging.info(f"{len (self.global_server.decrypted_lattices) } from: % s",self.num_clients)
                 if self.global_lattice is not None:
                     self.quality = self.compute_f1_score4()
                     logging.info("F1-score:%s", self.quality)
@@ -535,7 +519,7 @@ class AGMActor:
     def handle_message(self, message):
         try:
             message = json.loads(message.value().decode('utf-8'))
-            #logging.info("Received message: %s", message)
+            logging.info("Received message: %s", message)
             if 'result' in message:
                 result_dict = message['result']
                 try:
@@ -544,10 +528,11 @@ class AGMActor:
                         self.global_server.receive_encrypted_lattice_from_local(encrypted_data,self.key)
                         self.global_lattice=self.global_server.union_decrypted_lattices()
                         
-                        #logging.info("Decrypted data for recipient %s: %s", recipient, lattice)
+                        logging.info("Decrypted data for recipient %s: %s", recipient, self.global_lattice)
                         decrypted_data = self.decrypt_message(encrypted_data)
+                        #logging.info("Receiving decrypting data for recipient %s", recipient)
                         if decrypted_data is not None:
-                            #logging.info("Decrypted data for recipient %s: %s", recipient, decrypted_data)
+                            logging.info("Decrypted data for recipient %s: %s", recipient, decrypted_data)
                             self.results[recipient] = decrypted_data
                         else:
                             logging.error("Error decrypting data for recipient %s", recipient)
@@ -614,34 +599,29 @@ class AGMActor:
         logging.info("Global average result saved as JSON.")
 
     def run(self):
-        while True:
-            try:
-                # Polling with timeout of 1 second (adjustable based on use case)
-                msg = self.consumer.poll(timeout=100.0)  # Timeout is in seconds
+        try:
+            # Start polling messages
+            while True:
+                msg = self.consumer.poll(timeout=1.0)
 
                 if msg is None:
-                    # No new message received within the timeout, continue the loop
                     continue
 
                 if msg.error():
-                    # If there is an error, check if it's EOF (End of File) or another error
                     if msg.error().code() == KafkaError._PARTITION_EOF:
-                        logging.info(f"Reached end of partition {msg.partition} at offset {msg.offset()}")
-                        continue  # Continue polling after EOF error, no processing needed for EOF
+                        continue
                     else:
-                        # Log other Kafka errors
                         logging.error("Consumer error: %s", msg.error())
-                        continue  # Skip processing and continue the loop
+                        continue
 
-                # Message received successfully, handle it
+                # Submit each message to be processed in a separate thread
+                # logging.info("executor handle_message: %s", msg)
                 self.handle_message(msg)
 
-            except Exception as e:
-                # Log any unexpected errors in the polling or message handling
-                logging.error(f"Unexpected error while consuming messages: {e}")
+        except Exception as e:
+            logging.error("Error during message consumption: %s", e)
+ 
 
-            # Optionally, you can add a sleep to avoid overwhelming the CPU
-            # time.sleep(1)
 if __name__ == "__main__":
     kafka_servers = 'PLAINTEXT://kafka-1:19092,PLAINTEXT://kafka-2:19093,PLAINTEXT://kafka-3:19094'
     logging.basicConfig(level=logging.INFO)

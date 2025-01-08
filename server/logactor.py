@@ -14,6 +14,7 @@ class LoggerActor:
         self.stats={}
 
     def log_stats(self,stats,keyspace='data_stats'):
+        logging.info("data_stats is saved : %s", stats)
         try:
             redis_client.rpush(keyspace, json.dumps(stats))
             logging.info("data_stats is saved : %s", stats)
