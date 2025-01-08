@@ -312,29 +312,36 @@ FedFCA can also be deployed on a Kubernetes cluster for scalable and robust depl
    kubectl apply -f redis.yaml
    ```
 
-4. Deploy the FedFCA application:
+4. Deploy the FedFCA Actor:
    Create a `fedfca-deployment.yaml`:
    ```yaml
-   apiVersion: apps/v1
-   kind: Deployment
-   metadata:
-     name: fedfca
-     namespace: fedfca
-   spec:
-     replicas: 3
-     selector:
-       matchLabels:
-         app: fedfca
-     template:
-       metadata:
-         labels:
-           app: fedfca
-       spec:
-         containers:
-         - name: fedfca
-           image: your-docker-image:latest
-           ports:
-           - containerPort: 8000
+    apiVersion: apps/v1
+    kind: Deployment
+    metadata:
+      name: fca-actor
+    spec:
+      replicas: 1
+      selector:
+        matchLabels:
+          app: fca-actor
+      template:
+        metadata:
+          labels:
+            app: fca-actor
+        spec:
+          containers:
+          - name: fca-actor
+            image: your-dockerhub-username/fca-actor:latest
+            ports:
+            - containerPort: 8082
+            volumeMounts:
+            - name: config-volume
+              mountPath: /data
+          volumes:
+          - name: config-volume
+            configMap:
+              name: fca-actor-config
+    
    ```
    Apply the deployment:
    ```bash
@@ -343,25 +350,67 @@ FedFCA can also be deployed on a Kubernetes cluster for scalable and robust depl
 
 5. Expose the application using a Service:
    ```yaml
-   apiVersion: v1
-   kind: Service
-   metadata:
-     name: fedfca-service
-     namespace: fedfca
-   spec:
-     selector:
-       app: fedfca
-     ports:
-       - protocol: TCP
-         port: 80
-         targetPort: 8000
-     type: LoadBalancer
+    ---
+        apiVersion: v1
+        kind: Service
+        metadata:
+          name: fca-actor
+        spec:
+          selector:
+            app: fca-actor
+          ports:
+          - port: 8082
+            targetPort: 8082
    ```
    Apply the service:
    ```bash
-   kubectl apply -f fedfca-service.yaml
+   kubectl apply -f fedfca-actor.yaml
    ```
+6. AGM Actor Deployment
+   ```yaml
+    apiVersion: apps/v1
+    kind: Deployment
+    metadata:
+      name: agm-actor
+    spec:
+      replicas: 1
+      selector:
+        matchLabels:
+          app: agm-actor
+      template:
+        metadata:
+          labels:
+            app: agm-actor
+        spec:
+          containers:
+          - name: agm-actor
+            image: your-dockerhub-username/agm-actor:latest
+            ports:
+            - containerPort: 8080
+            volumeMounts:
+            - name: config-volume
+              mountPath: /data
+          volumes:
+          - name: config-volume
+            configMap:
+              name: agm-actor-config
+    ---
+    apiVersion: v1
+    kind: Service
+    metadata:
+      name: agm-actor
+    spec:
+      selector:
+        app: agm-actor
+      ports:
+      - port: 8080
+        targetPort: 8080
 
+ ```
+   Apply the service:
+   ```bash
+   kubectl apply -f fedfca-agmactor.yaml
+   ```
 6. Verify the deployment:
    ```bash
    kubectl get all -n fedfca
