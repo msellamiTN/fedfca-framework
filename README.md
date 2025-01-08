@@ -14,11 +14,12 @@ FedFCA is an open-source framework for Federated Formal Concept Analysis (FCA), 
 5. [Usage](#usage)
 6. [Docker Setup](#docker-setup)
 7. [Docker Compose Setup](#docker-compose-setup)
-8. [API Reference](#api-reference)
-9. [Contributing](#contributing)
-10. [License](#license)
-11. [Acknowledgments](#acknowledgments)
-12. [Contact](#contact)
+8. [Kubernetes Setup](#kubernetes-setup)
+9. [API Reference](#api-reference)
+10. [Contributing](#contributing)
+11. [License](#license)
+12. [Acknowledgments](#acknowledgments)
+13. [Contact](#contact)
 
 ---
 
@@ -200,8 +201,6 @@ services:
     networks:
       - fedfca-network
 
-  # Add additional services here
-
   redis:
     image: redis
     hostname: datastore
@@ -240,6 +239,132 @@ networks:
 3. To stop the services:
    ```bash
    docker-compose down
+   ```
+
+---
+
+## Kubernetes Setup
+
+FedFCA can also be deployed on a Kubernetes cluster for scalable and robust deployments.
+
+### Prerequisites
+- A Kubernetes cluster (local or cloud-based)
+- kubectl configured to communicate with the cluster
+- Helm (optional, for easier deployment of dependencies)
+
+### Deployment Steps
+
+1. Create a Kubernetes namespace for FedFCA:
+   ```bash
+   kubectl create namespace fedfca
+   ```
+
+2. Deploy Zookeeper and Kafka:
+   Use a Helm chart or a custom YAML file. For example:
+
+   ```yaml
+   apiVersion: v1
+   kind: Pod
+   metadata:
+     name: zookeeper
+     namespace: fedfca
+   spec:
+     containers:
+     - name: zookeeper
+       image: confluentinc/cp-zookeeper:latest
+       ports:
+       - containerPort: 2181
+   ---
+   apiVersion: v1
+   kind: Pod
+   metadata:
+     name: kafka
+     namespace: fedfca
+   spec:
+     containers:
+     - name: kafka
+       image: confluentinc/cp-kafka:latest
+       ports:
+       - containerPort: 9092
+   ```
+
+   Apply the file:
+   ```bash
+   kubectl apply -f zookeeper-kafka.yaml
+   ```
+
+3. Deploy the Redis datastore:
+   ```yaml
+   apiVersion: v1
+   kind: Pod
+   metadata:
+     name: redis
+     namespace: fedfca
+   spec:
+     containers:
+     - name: redis
+       image: redis:latest
+       ports:
+       - containerPort: 6379
+   ```
+   Apply the file:
+   ```bash
+   kubectl apply -f redis.yaml
+   ```
+
+4. Deploy the FedFCA application:
+   Create a `fedfca-deployment.yaml`:
+   ```yaml
+   apiVersion: apps/v1
+   kind: Deployment
+   metadata:
+     name: fedfca
+     namespace: fedfca
+   spec:
+     replicas: 3
+     selector:
+       matchLabels:
+         app: fedfca
+     template:
+       metadata:
+         labels:
+           app: fedfca
+       spec:
+         containers:
+         - name: fedfca
+           image: your-docker-image:latest
+           ports:
+           - containerPort: 8000
+   ```
+   Apply the deployment:
+   ```bash
+   kubectl apply -f fedfca-deployment.yaml
+   ```
+
+5. Expose the application using a Service:
+   ```yaml
+   apiVersion: v1
+   kind: Service
+   metadata:
+     name: fedfca-service
+     namespace: fedfca
+   spec:
+     selector:
+       app: fedfca
+     ports:
+       - protocol: TCP
+         port: 80
+         targetPort: 8000
+     type: LoadBalancer
+   ```
+   Apply the service:
+   ```bash
+   kubectl apply -f fedfca-service.yaml
+   ```
+
+6. Verify the deployment:
+   ```bash
+   kubectl get all -n fedfca
    ```
 
 ---
