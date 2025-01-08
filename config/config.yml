@@ -1,5 +1,6 @@
 clients:
   num_clients: 5
+  num_clients: 5
 dataset:
   url: 'https://raw.githubusercontent.com/msellamiTN/fedfca-framework/refs/heads/main/data/'
   name : 'dataset_200_10_8.data'

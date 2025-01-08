@@ -20,7 +20,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy the current directory contents into the container at /app
 #COPY . /app
 # Expose the port the app runs on
-EXPOSE 8050
+EXPOSE 8051
 
 # Run the Python script when the container launches
-CMD ["python", "monitor.py"]
+#CMD ["python", "monitor.py"]
+# Run the application
+CMD ["streamlit", "run", "streamlit.py", "--server.port=8051", "--server.address=0.0.0.0"]

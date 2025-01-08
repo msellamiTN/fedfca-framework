@@ -247,6 +247,7 @@ class AGMActor:
         self.executor = ThreadPoolExecutor(max_workers=max_workers)  # Thread pool for concurrent processing
         self.config_file = "/data/config.yml"
         self.dataset_id =  None
+        self.dataset_name=None
         self.fraction = None
         self.privacy_budget = None
         self.startTime=None
@@ -504,6 +505,7 @@ class AGMActor:
                     logging.info("F1-score:%s", self.quality)
                     self.quality_data = {
                     "Dataset_id": self.dataset_id,
+                    "Dataset_name": self.dataset_name,
                     "Fraction": self.fraction,
                     "Privacy_budget": self.privacy_budget,
                     "Participant": self.num_clients,
@@ -540,6 +542,11 @@ class AGMActor:
                         self.RunTime = self.endTime-self.startTime
                         # Prepare data to send to Kafka
                         self.runtime_data = {
+                            "Dataset_id": self.dataset_id,
+                            "Dataset_name": self.dataset_name,
+                            "Fraction": self.fraction,
+                            "Privacy_budget": self.privacy_budget,
+                            "Participant": self.num_clients,
                             "Actor": self.actor_id,
                             "StartTime":  self.startTime,
                             "EndTime": self.endTime,
