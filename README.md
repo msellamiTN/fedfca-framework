@@ -1,6 +1,6 @@
 # FedFCA Framework
 
-![FedFCA Logo](#) <!-- Add a logo if available -->
+![FedFCA Logo](logoFCA.png) <!-- Add a logo if available -->
 
 FedFCA is an open-source framework for Federated Formal Concept Analysis (FCA), enabling privacy-preserving, distributed data analysis. It is designed for collaborative environments where data cannot be shared directly due to privacy or regulatory constraints.
 
