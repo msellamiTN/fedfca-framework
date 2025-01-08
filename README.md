@@ -313,7 +313,7 @@ FedFCA can also be deployed on a Kubernetes cluster for scalable and robust depl
    ```
 
 4. Deploy the FedFCA Actor:
-   Create a `fedfca-deployment.yaml`:
+   Create a `fedfca-actor.yaml`:
    ```yaml
     apiVersion: apps/v1
     kind: Deployment
@@ -345,7 +345,7 @@ FedFCA can also be deployed on a Kubernetes cluster for scalable and robust depl
    ```
    Apply the deployment:
    ```bash
-   kubectl apply -f fedfca-deployment.yaml
+   kubectl apply -f fedfca-actor.yaml
    ```
 
 5. Expose the application using a Service:
