@@ -1637,6 +1637,7 @@ class AGMActor:
         to address reviewer comments about architectural vs computational overhead
         """
         try:
+            fed_metrics={}
             federation_id = message.get('federation_id')
             provider_id = message.get('provider_id')
             encryption_key = message.get('encryption_key')
@@ -1681,9 +1682,10 @@ class AGMActor:
                 self.pending_lattices[federation_id] = {}
             
             # Initialize federation metrics aggregation if not exists
-            if federation_id not in getattr(self, 'federation_comprehensive_metrics', {}):
-                if not hasattr(self, 'federation_comprehensive_metrics'):
-                    self.federation_comprehensive_metrics = {}
+            if not hasattr(self, 'federation_comprehensive_metrics'):
+                self.federation_comprehensive_metrics = {}
+                
+            if federation_id not in self.federation_comprehensive_metrics:
                 self.federation_comprehensive_metrics[federation_id] = {
                     'providers': {},
                     'aggregated_metrics': {
@@ -1699,6 +1701,9 @@ class AGMActor:
                     'comparison_analysis': {},
                     'architectural_breakdown': {}
                 }
+                
+            # Get reference to federation metrics for easier access
+            fed_metrics = self.federation_comprehensive_metrics[federation_id]['aggregated_metrics']
             
             coordination_time = time.time() - coordination_start
             agm_metrics['federation_coordination']['setup_time'] = coordination_time
