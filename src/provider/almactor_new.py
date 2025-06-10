@@ -1487,6 +1487,7 @@ class ALMActor:
                         message_prep_start = time.time()
                         comprehensive_message = {
                             "federation_id": federation_id,
+                            "encryption_key": self.encryption_key,
                             "dataset_id": self.dataset_config.get('dataset_id'),    
                             "action": "lattice_result",
                             "provider_id": self.provider_id,
