@@ -963,14 +963,23 @@ class AGMActor:
             # 1. Decrypt and process the lattice
             try:
                 # Get encryption key for this provider
-                encryption_key = self._get_encryption_key(federation_id, provider_id)
+                key_id = message.get('encryption_key')
+                if not key_id:
+                    self.logger.error(f"No encryption key ID found in message from provider {provider_id}")
+                    return False
+                    
+                encryption_key = self._get_encryption_key(federation_id, provider_id, key_id=key_id)
                 if not encryption_key:
-                    self.logger.error(f"No encryption key found for provider {provider_id}")
+                    self.logger.error(f"No encryption key found for provider {provider_id} with key ID {key_id}")
                     return False
                     
                 # Decrypt the lattice
                 decryption_start = time.time()
-                decrypted_lattice = self.crypto_manager.decrypt(encrypted_lattice, encryption_key)
+                try:
+                    decrypted_lattice = self.crypto_manager.decrypt(encrypted_lattice, encryption_key)
+                except Exception as e:
+                    self.logger.error(f"Decryption failed for provider {provider_id} with key ID {key_id}: {str(e)}")
+                    return False
                 decryption_time = time.time() - decryption_start
                 
                 # Store the decrypted lattice
@@ -1028,6 +1037,80 @@ class AGMActor:
         except Exception as e:
             self.logger.error(f"Unexpected error in _handle_lattice_result: {str(e)}", exc_info=True)
             return False
+    
+    def _get_encryption_key(self, federation_id, provider_id, key_id=None):
+        """
+        Retrieve the encryption key for a specific provider in a federation.
+        
+        Args:
+            federation_id (str): The ID of the federation
+            provider_id (str): The ID of the provider
+            key_id (str, optional): Specific key ID to retrieve. If None, will try to find the key.
+            
+        Returns:
+            str: The encryption key if found, None otherwise
+        """
+        try:
+            # If key_id is provided, try to get that specific key
+            if key_id:
+                self.logger.debug(f"Retrieving specific key {key_id} for provider {provider_id}")
+                key_data = self.crypto_manager.kms.get_key(key_id)
+                if key_data:
+                    # Cache the key for future use
+                    if provider_id not in self.provider_keys:
+                        self.provider_keys[provider_id] = []
+                    if key_id not in self.provider_keys[provider_id]:
+                        self.provider_keys[provider_id].append(key_id)
+                    return key_data
+                return None
+                
+            # First check if we have the key in our local cache
+            if provider_id in self.provider_keys and self.provider_keys[provider_id]:
+                key_id = self.provider_keys[provider_id][-1]  # Get the most recent key
+                self.logger.debug(f"Found key {key_id} for provider {provider_id} in local cache")
+                key_data = self.crypto_manager.kms.get_key(key_id)
+                if key_data:
+                    return key_data
+                # If key not found in KMS, remove from cache
+                self.provider_keys[provider_id].remove(key_id)
+            
+            # If not in local cache, try to get from RedisKMS using standard key pattern
+            self.logger.debug(f"Key for provider {provider_id} not in local cache, checking RedisKMS")
+            
+            # Try to get the key from federation info in active_federations
+            if federation_id in self.active_federations:
+                fed = self.active_federations[federation_id]
+                if 'providers' in fed and provider_id in fed['providers']:
+                    provider_info = fed['providers'][provider_id]
+                    if 'encryption_key' in provider_info:
+                        key_data = provider_info['encryption_key']
+                        if isinstance(key_data, dict) and 'key_id' in key_data:
+                            key_id = key_data['key_id']
+                            # Cache the key for future use
+                            if provider_id not in self.provider_keys:
+                                self.provider_keys[provider_id] = []
+                            if key_id not in self.provider_keys[provider_id]:
+                                self.provider_keys[provider_id].append(key_id)
+                            return self.crypto_manager.kms.get_key(key_id)
+            
+            # If we get here, try to get the key directly from RedisKMS using a standard key pattern
+            key_id = f"fedfca:kms:agm:{federation_id}:{provider_id}"
+            key_data = self.crypto_manager.kms.get_key(key_id)
+            
+            if key_data:
+                # Cache the key for future use
+                if provider_id not in self.provider_keys:
+                    self.provider_keys[provider_id] = []
+                if key_id not in self.provider_keys[provider_id]:
+                    self.provider_keys[provider_id].append(key_id)
+                return key_data
+                
+            self.logger.error(f"No encryption key found for provider {provider_id} in federation {federation_id}")
+            return None
+            
+        except Exception as e:
+            self.logger.error(f"Error getting encryption key for provider {provider_id}: {str(e)}", exc_info=True)
+            return None
     
     def _initialize_federation_metrics(self, federation_id):
         """Initialize metrics structure for a federation"""
