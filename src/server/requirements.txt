@@ -1,0 +1,15 @@
+cryptography
+pandas
+confluent-kafka
+networkx
+matplotlib
+tenseal
+ucimlrepo
+pyyaml
+redis
+requests
+scipy
+psutil
+seaborn
+numpy
+scikit-learn

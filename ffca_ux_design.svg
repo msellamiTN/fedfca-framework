@@ -1,0 +1,646 @@
+<svg viewBox="0 0 1600 1200" xmlns="http://www.w3.org/2000/svg">
+  <!-- Modern Gradients and Effects -->
+  <defs>
+    <linearGradient id="modernBg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#667eea;stop-opacity:0.1" />
+      <stop offset="50%" style="stop-color:#764ba2;stop-opacity:0.05" />
+      <stop offset="100%" style="stop-color:#f093fb;stop-opacity:0.1" />
+    </linearGradient>
+    
+    <linearGradient id="headerGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#667eea" />
+      <stop offset="100%" style="stop-color:#764ba2" />
+    </linearGradient>
+    
+    <linearGradient id="cardGrad1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#4facfe" />
+      <stop offset="100%" style="stop-color:#00f2fe" />
+    </linearGradient>
+    
+    <linearGradient id="cardGrad2" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#43e97b" />
+      <stop offset="100%" style="stop-color:#38f9d7" />
+    </linearGradient>
+    
+    <linearGradient id="cardGrad3" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#fa709a" />
+      <stop offset="100%" style="stop-color:#fee140" />
+    </linearGradient>
+    
+    <linearGradient id="privacyShield" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#ff9a9e" />
+      <stop offset="100%" style="stop-color:#fecfef" />
+    </linearGradient>
+    
+    <filter id="modernShadow">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="8"/>
+      <feOffset dx="0" dy="4" result="offset"/>
+      <feComponentTransfer>
+        <feFuncA type="linear" slope="0.15"/>
+      </feComponentTransfer>
+      <feMerge> 
+        <feMergeNode/>
+        <feMergeNode in="SourceGraphic"/> 
+      </feMerge>
+    </filter>
+    
+    <filter id="glowEffect">
+      <feGaussianBlur stdDeviation="4" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    
+    <!-- Matrix Pattern -->
+    <pattern id="matrixPattern" patternUnits="userSpaceOnUse" width="12" height="12">
+      <rect width="12" height="12" fill="rgba(255,255,255,0.05)"/>
+      <circle cx="6" cy="6" r="1" fill="rgba(255,255,255,0.3)"/>
+    </pattern>
+    
+    <!-- Data Flow Animation -->
+    <animate id="dataFlow" attributeName="stroke-dashoffset" values="20;0" dur="2s" repeatCount="indefinite"/>
+  </defs>
+  
+  <!-- Modern Background -->
+  <rect width="1600" height="1200" fill="url(#modernBg)"/>
+  <rect width="1600" height="1200" fill="rgba(255,255,255,0.95)"/>
+  
+  <!-- Header with Modern Design -->
+  <rect x="40" y="20" width="1520" height="80" fill="url(#headerGrad)" rx="16" filter="url(#modernShadow)"/>
+  <text x="800" y="50" text-anchor="middle" font-size="28" font-weight="700" fill="white">
+    🏥 Secure Medical Data Analytics Platform
+  </text>
+  <text x="800" y="75" text-anchor="middle" font-size="16" font-weight="400" fill="rgba(255,255,255,0.9)">
+    Privacy-First Multi-Hospital Patient Risk Analysis
+  </text>
+  
+  <!-- Hospital Cards with Local Lattice Visualization -->
+  
+  <!-- Hospital A Card -->
+  <g transform="translate(60, 130)">
+    <rect x="0" y="0" width="380" height="320" fill="white" rx="20" filter="url(#modernShadow)"/>
+    <rect x="0" y="0" width="380" height="60" fill="url(#cardGrad1)" rx="20"/>
+    <rect x="0" y="40" width="380" height="20" fill="url(#cardGrad1)"/>
+    
+    <!-- Hospital Icon and Title -->
+    <text x="30" y="35" font-size="24" fill="white">🏥</text>
+    <text x="70" y="25" font-size="18" font-weight="600" fill="white">Urban Medical Center</text>
+    <text x="70" y="45" font-size="14" font-weight="400" fill="rgba(255,255,255,0.9)">Downtown Hospital A</text>
+    
+    <!-- Patient Data Summary -->
+    <g transform="translate(20, 80)">
+      <rect x="0" y="0" width="340" height="40" fill="rgba(79, 172, 254, 0.1)" rx="8"/>
+      <text x="20" y="18" font-size="14" font-weight="600" fill="#2c3e50">📊 Patient Cohort</text>
+      <text x="20" y="32" font-size="12" fill="#5a6c7d">3,247 patients • Urban demographics • High-risk focus</text>
+    </g>
+    
+    <!-- Local Context Matrix Visualization -->
+    <g transform="translate(20, 140)">
+      <text x="0" y="15" font-size="16" font-weight="600" fill="#2c3e50">Local Data Matrix</text>
+      
+      <!-- Matrix Header -->
+      <g transform="translate(0, 25)">
+        <text x="40" y="15" font-size="10" font-weight="500" fill="#6c757d">Diabetes</text>
+        <text x="90" y="15" font-size="10" font-weight="500" fill="#6c757d">Hypertension</text>
+        <text x="150" y="15" font-size="10" font-weight="500" fill="#6c757d">Obesity</text>
+        <text x="200" y="15" font-size="10" font-weight="500" fill="#6c757d">Smoking</text>
+        <text x="250" y="15" font-size="10" font-weight="500" fill="#6c757d">Age 65+</text>
+        <text x="300" y="15" font-size="10" font-weight="500" fill="#6c757d">Genetic Risk</text>
+      </g>
+      
+      <!-- Matrix Rows -->
+      <g transform="translate(0, 45)">
+        <!-- Patient P1 -->
+        <text x="0" y="15" font-size="11" font-weight="500" fill="#2c3e50">P₁</text>
+        <circle cx="50" cy="10" r="6" fill="#28a745"/>
+        <circle cx="100" cy="10" r="6" fill="#28a745"/>
+        <circle cx="160" cy="10" r="6" fill="#dc3545"/>
+        <circle cx="210" cy="10" r="6" fill="#dc3545"/>
+        <circle cx="260" cy="10" r="6" fill="#28a745"/>
+        <circle cx="310" cy="10" r="6" fill="#28a745"/>
+        
+        <!-- Patient P2 -->
+        <text x="0" y="35" font-size="11" font-weight="500" fill="#2c3e50">P₂</text>
+        <circle cx="50" cy="30" r="6" fill="#28a745"/>
+        <circle cx="100" cy="30" r="6" fill="#dc3545"/>
+        <circle cx="160" cy="30" r="6" fill="#28a745"/>
+        <circle cx="210" cy="30" r="6" fill="#28a745"/>
+        <circle cx="260" cy="30" r="6" fill="#dc3545"/>
+        <circle cx="310" cy="30" r="6" fill="#dc3545"/>
+        
+        <!-- Patient P3 -->
+        <text x="0" y="55" font-size="11" font-weight="500" fill="#2c3e50">P₃</text>
+        <circle cx="50" cy="50" r="6" fill="#dc3545"/>
+        <circle cx="100" cy="50" r="6" fill="#28a745"/>
+        <circle cx="160" cy="50" r="6" fill="#dc3545"/>
+        <circle cx="210" cy="50" r="6" fill="#dc3545"/>
+        <circle cx="260" cy="50" r="6" fill="#28a745"/>
+        <circle cx="310" cy="50" r="6" fill="#dc3545"/>
+      </g>
+      
+      <!-- Legend -->
+      <g transform="translate(0, 115)">
+        <circle cx="10" cy="5" r="4" fill="#28a745"/>
+        <text x="20" y="9" font-size="10" fill="#6c757d">Present</text>
+        <circle cx="80" cy="5" r="4" fill="#dc3545"/>
+        <text x="90" y="9" font-size="10" fill="#6c757d">Absent</text>
+      </g>
+    </g>
+    
+    <!-- Local Concept Lattice Preview -->
+    <g transform="translate(200, 150)">
+      <text x="0" y="15" font-size="14" font-weight="600" fill="#2c3e50">🔗 Local Concepts</text>
+      
+      <!-- Mini Lattice -->
+      <g transform="translate(20, 25)">
+        <!-- Top concept -->
+        <circle cx="60" cy="10" r="12" fill="#4facfe" stroke="white" stroke-width="2"/>
+        <text x="60" y="14" text-anchor="middle" font-size="8" font-weight="bold" fill="white">All</text>
+        
+        <!-- Middle concepts -->
+        <circle cx="30" cy="40" r="10" fill="#00f2fe" stroke="white" stroke-width="2"/>
+        <text x="30" y="43" text-anchor="middle" font-size="7" fill="white">D+H</text>
+        
+        <circle cx="90" cy="40" r="10" fill="#00f2fe" stroke="white" stroke-width="2"/>
+        <text x="90" y="43" text-anchor="middle" font-size="7" fill="white">Age</text>
+        
+        <!-- Bottom concept -->
+        <circle cx="60" cy="70" r="8" fill="#0891b2" stroke="white" stroke-width="2"/>
+        <text x="60" y="73" text-anchor="middle" font-size="6" fill="white">∅</text>
+        
+        <!-- Connections -->
+        <line x1="60" y1="22" x2="30" y2="30" stroke="#bbb" stroke-width="1"/>
+        <line x1="60" y1="22" x2="90" y2="30" stroke="#bbb" stroke-width="1"/>
+        <line x1="30" y1="50" x2="60" y2="62" stroke="#bbb" stroke-width="1"/>
+        <line x1="90" y1="50" x2="60" y2="62" stroke="#bbb" stroke-width="1"/>
+      </g>
+      
+      <text x="0" y="105" font-size="12" font-weight="500" fill="#28a745">✓ 4 Concepts Identified</text>
+    </g>
+    
+    <!-- Privacy Status -->
+    <g transform="translate(20, 280)">
+      <rect x="0" y="0" width="340" height="30" fill="rgba(40, 167, 69, 0.1)" rx="6"/>
+      <text x="15" y="12" font-size="12" font-weight="600" fill="#28a745">🔒 Privacy Status</text>
+      <text x="15" y="24" font-size="10" fill="#28a745">ε-DP: 0.5 • k-anonymity: k=3 • Secure</text>
+    </g>
+  </g>
+  
+  <!-- Hospital B Card -->
+  <g transform="translate(460, 130)">
+    <rect x="0" y="0" width="380" height="320" fill="white" rx="20" filter="url(#modernShadow)"/>
+    <rect x="0" y="0" width="380" height="60" fill="url(#cardGrad2)" rx="20"/>
+    <rect x="0" y="40" width="380" height="20" fill="url(#cardGrad2)"/>
+    
+    <text x="30" y="35" font-size="24" fill="white">🏥</text>
+    <text x="70" y="25" font-size="18" font-weight="600" fill="white">Rural Health Network</text>
+    <text x="70" y="45" font-size="14" font-weight="400" fill="rgba(255,255,255,0.9)">Regional Hospital B</text>
+    
+    <g transform="translate(20, 80)">
+      <rect x="0" y="0" width="340" height="40" fill="rgba(67, 233, 123, 0.1)" rx="8"/>
+      <text x="20" y="18" font-size="14" font-weight="600" fill="#2c3e50">📊 Patient Cohort</text>
+      <text x="20" y="32" font-size="12" fill="#5a6c7d">1,892 patients • Rural demographics • Diverse conditions</text>
+    </g>
+    
+    <!-- Local Context Matrix for Hospital B -->
+    <g transform="translate(20, 140)">
+      <text x="0" y="15" font-size="16" font-weight="600" fill="#2c3e50">Local Data Matrix</text>
+      
+      <g transform="translate(0, 25)">
+        <text x="40" y="15" font-size="10" font-weight="500" fill="#6c757d">Diabetes</text>
+        <text x="90" y="15" font-size="10" font-weight="500" fill="#6c757d">Hypertension</text>
+        <text x="150" y="15" font-size="10" font-weight="500" fill="#6c757d">Obesity</text>
+        <text x="200" y="15" font-size="10" font-weight="500" fill="#6c757d">Smoking</text>
+        <text x="250" y="15" font-size="10" font-weight="500" fill="#6c757d">Age 65+</text>
+        <text x="300" y="15" font-size="10" font-weight="500" fill="#6c757d">Genetic Risk</text>
+      </g>
+      
+      <g transform="translate(0, 45)">
+        <!-- Patient P4 -->
+        <text x="0" y="15" font-size="11" font-weight="500" fill="#2c3e50">P₄</text>
+        <circle cx="50" cy="10" r="6" fill="#28a745"/>
+        <circle cx="100" cy="10" r="6" fill="#28a745"/>
+        <circle cx="160" cy="10" r="6" fill="#28a745"/>
+        <circle cx="210" cy="10" r="6" fill="#28a745"/>
+        <circle cx="260" cy="10" r="6" fill="#28a745"/>
+        <circle cx="310" cy="10" r="6" fill="#28a745"/>
+        
+        <!-- Patient P5 -->
+        <text x="0" y="35" font-size="11" font-weight="500" fill="#2c3e50">P₅</text>
+        <circle cx="50" cy="30" r="6" fill="#dc3545"/>
+        <circle cx="100" cy="30" r="6" fill="#dc3545"/>
+        <circle cx="160" cy="30" r="6" fill="#28a745"/>
+        <circle cx="210" cy="30" r="6" fill="#28a745"/>
+        <circle cx="260" cy="30" r="6" fill="#dc3545"/>
+        <circle cx="310" cy="30" r="6" fill="#dc3545"/>
+        
+        <!-- Patient P6 -->
+        <text x="0" y="55" font-size="11" font-weight="500" fill="#2c3e50">P₆</text>
+        <circle cx="50" cy="50" r="6" fill="#dc3545"/>
+        <circle cx="100" cy="50" r="6" fill="#dc3545"/>
+        <circle cx="160" cy="50" r="6" fill="#dc3545"/>
+        <circle cx="210" cy="50" r="6" fill="#dc3545"/>
+        <circle cx="260" cy="50" r="6" fill="#dc3545"/>
+        <circle cx="310" cy="50" r="6" fill="#28a745"/>
+      </g>
+    </g>
+    
+    <!-- Local Concept Lattice for Hospital B -->
+    <g transform="translate(200, 150)">
+      <text x="0" y="15" font-size="14" font-weight="600" fill="#2c3e50">🔗 Local Concepts</text>
+      
+      <g transform="translate(20, 25)">
+        <circle cx="60" cy="10" r="12" fill="#43e97b" stroke="white" stroke-width="2"/>
+        <text x="60" y="14" text-anchor="middle" font-size="8" font-weight="bold" fill="white">All</text>
+        
+        <circle cx="20" cy="35" r="9" fill="#38f9d7" stroke="white" stroke-width="2"/>
+        <text x="20" y="38" text-anchor="middle" font-size="6" fill="white">Multi</text>
+        
+        <circle cx="60" cy="35" r="9" fill="#38f9d7" stroke="white" stroke-width="2"/>
+        <text x="60" y="38" text-anchor="middle" font-size="6" fill="white">Life</text>
+        
+        <circle cx="100" cy="35" r="9" fill="#38f9d7" stroke="white" stroke-width="2"/>
+        <text x="100" y="38" text-anchor="middle" font-size="6" fill="white">Gen</text>
+        
+        <circle cx="60" cy="65" r="8" fill="#20bf6b" stroke="white" stroke-width="2"/>
+        <text x="60" y="68" text-anchor="middle" font-size="6" fill="white">∅</text>
+        
+        <!-- Connections -->
+        <line x1="60" y1="22" x2="20" y2="26" stroke="#bbb" stroke-width="1"/>
+        <line x1="60" y1="22" x2="60" y2="26" stroke="#bbb" stroke-width="1"/>
+        <line x1="60" y1="22" x2="100" y2="26" stroke="#bbb" stroke-width="1"/>
+        <line x1="20" y1="44" x2="60" y2="57" stroke="#bbb" stroke-width="1"/>
+        <line x1="60" y1="44" x2="60" y2="57" stroke="#bbb" stroke-width="1"/>
+        <line x1="100" y1="44" x2="60" y2="57" stroke="#bbb" stroke-width="1"/>
+      </g>
+      
+      <text x="0" y="105" font-size="12" font-weight="500" fill="#28a745">✓ 5 Concepts Identified</text>
+    </g>
+    
+    <g transform="translate(20, 280)">
+      <rect x="0" y="0" width="340" height="30" fill="rgba(40, 167, 69, 0.1)" rx="6"/>
+      <text x="15" y="12" font-size="12" font-weight="600" fill="#28a745">🔒 Privacy Status</text>
+      <text x="15" y="24" font-size="10" fill="#28a745">ε-DP: 0.3 • l-diversity: l=3 • Secure</text>
+    </g>
+  </g>
+  
+  <!-- Hospital C Card -->
+  <g transform="translate(860, 130)">
+    <rect x="0" y="0" width="380" height="320" fill="white" rx="20" filter="url(#modernShadow)"/>
+    <rect x="0" y="0" width="380" height="60" fill="url(#cardGrad3)" rx="20"/>
+    <rect x="0" y="40" width="380" height="20" fill="url(#cardGrad3)"/>
+    
+    <text x="30" y="35" font-size="24" fill="white">🏥</text>
+    <text x="70" y="25" font-size="18" font-weight="600" fill="white">Specialty Care Center</text>
+    <text x="70" y="45" font-size="14" font-weight="400" fill="rgba(255,255,255,0.9)">Diabetes Specialist C</text>
+    
+    <g transform="translate(20, 80)">
+      <rect x="0" y="0" width="340" height="40" fill="rgba(247, 112, 154, 0.1)" rx="8"/>
+      <text x="20" y="18" font-size="14" font-weight="600" fill="#2c3e50">📊 Patient Cohort</text>
+      <text x="20" y="32" font-size="12" fill="#5a6c7d">956 patients • Specialty care • Complex cases</text>
+    </g>
+    
+    <!-- Local Context Matrix for Hospital C -->
+    <g transform="translate(20, 140)">
+      <text x="0" y="15" font-size="16" font-weight="600" fill="#2c3e50">Local Data Matrix</text>
+      
+      <g transform="translate(0, 25)">
+        <text x="40" y="15" font-size="10" font-weight="500" fill="#6c757d">Diabetes</text>
+        <text x="90" y="15" font-size="10" font-weight="500" fill="#6c757d">Hypertension</text>
+        <text x="150" y="15" font-size="10" font-weight="500" fill="#6c757d">Obesity</text>
+        <text x="200" y="15" font-size="10" font-weight="500" fill="#6c757d">Smoking</text>
+        <text x="250" y="15" font-size="10" font-weight="500" fill="#6c757d">Age 65+</text>
+        <text x="300" y="15" font-size="10" font-weight="500" fill="#6c757d">Genetic Risk</text>
+      </g>
+      
+      <g transform="translate(0, 45)">
+        <!-- Patient P7 -->
+        <text x="0" y="15" font-size="11" font-weight="500" fill="#2c3e50">P₇</text>
+        <circle cx="50" cy="10" r="6" fill="#28a745"/>
+        <circle cx="100" cy="10" r="6" fill="#28a745"/>
+        <circle cx="160" cy="10" r="6" fill="#dc3545"/>
+        <circle cx="210" cy="10" r="6" fill="#dc3545"/>
+        <circle cx="260" cy="10" r="6" fill="#28a745"/>
+        <circle cx="310" cy="10" r="6" fill="#dc3545"/>
+        
+        <!-- Patient P8 -->
+        <text x="0" y="35" font-size="11" font-weight="500" fill="#2c3e50">P₈</text>
+        <circle cx="50" cy="30" r="6" fill="#dc3545"/>
+        <circle cx="100" cy="30" r="6" fill="#28a745"/>
+        <circle cx="160" cy="30" r="6" fill="#28a745"/>
+        <circle cx="210" cy="30" r="6" fill="#dc3545"/>
+        <circle cx="260" cy="30" r="6" fill="#dc3545"/>
+        <circle cx="310" cy="30" r="6" fill="#28a745"/>
+      </g>
+    </g>
+    
+    <!-- Local Concept Lattice for Hospital C -->
+    <g transform="translate(200, 150)">
+      <text x="0" y="15" font-size="14" font-weight="600" fill="#2c3e50">🔗 Local Concepts</text>
+      
+      <g transform="translate(20, 25)">
+        <circle cx="60" cy="10" r="12" fill="#fa709a" stroke="white" stroke-width="2"/>
+        <text x="60" y="14" text-anchor="middle" font-size="8" font-weight="bold" fill="white">All</text>
+        
+        <circle cx="35" cy="40" r="10" fill="#fee140" stroke="white" stroke-width="2"/>
+        <text x="35" y="43" text-anchor="middle" font-size="7" fill="white">Spec</text>
+        
+        <circle cx="85" cy="40" r="10" fill="#fee140" stroke="white" stroke-width="2"/>
+        <text x="85" y="43" text-anchor="middle" font-size="7" fill="white">Comp</text>
+        
+        <circle cx="60" cy="70" r="8" fill="#f7b733" stroke="white" stroke-width="2"/>
+        <text x="60" y="73" text-anchor="middle" font-size="6" fill="white">∅</text>
+        
+        <!-- Connections -->
+        <line x1="60" y1="22" x2="35" y2="30" stroke="#bbb" stroke-width="1"/>
+        <line x1="60" y1="22" x2="85" y2="30" stroke="#bbb" stroke-width="1"/>
+        <line x1="35" y1="50" x2="60" y2="62" stroke="#bbb" stroke-width="1"/>
+        <line x1="85" y1="50" x2="60" y2="62" stroke="#bbb" stroke-width="1"/>
+      </g>
+      
+      <text x="0" y="105" font-size="12" font-weight="500" fill="#28a745">✓ 3 Concepts Identified</text>
+    </g>
+    
+    <g transform="translate(20, 280)">
+      <rect x="0" y="0" width="340" height="30" fill="rgba(40, 167, 69, 0.1)" rx="6"/>
+      <text x="15" y="12" font-size="12" font-weight="600" fill="#28a745">🔒 Privacy Status</text>
+      <text x="15" y="24" font-size="10" fill="#28a745">ε-DP: 0.7 • t-closeness: t=0.2 • Secure</text>
+    </g>
+  </g>
+  
+  <!-- Secure Aggregation Process -->
+  <g transform="translate(1280, 130)">
+    <rect x="0" y="0" width="280" height="320" fill="white" rx="20" filter="url(#modernShadow)"/>
+    <rect x="0" y="0" width="280" height="60" fill="url(#privacyShield)" rx="20"/>
+    <rect x="0" y="40" width="280" height="20" fill="url(#privacyShield)"/>
+    
+    <text x="30" y="35" font-size="24" fill="white">🔐</text>
+    <text x="70" y="25" font-size="18" font-weight="600" fill="white">Secure Aggregation</text>
+    <text x="70" y="45" font-size="14" font-weight="400" fill="rgba(255,255,255,0.9)">Privacy-First Processing</text>
+    
+    <!-- Process Steps -->
+    <g transform="translate(30, 90)">
+      <g transform="translate(0, 0)">
+        <circle cx="15" cy="15" r="12" fill="#667eea" filter="url(#glowEffect)"/>
+        <text x="15" y="19" text-anchor="middle" font-size="10" font-weight="bold" fill="white">1</text>
+        <text x="35" y="12" font-size="12" font-weight="600" fill="#2c3e50">Encrypt Local Data</text>
+        <text x="35" y="25" font-size="10" fill="#6c757d">Homomorphic encryption</text>
+      </g>
+      
+      <g transform="translate(0, 50)">
+        <circle cx="15" cy="15" r="12" fill="#764ba2" filter="url(#glowEffect)"/>
+        <text x="15" y="19" text-anchor="middle" font-size="10" font-weight="bold" fill="white">2</text>
+        <text x="35" y="12" font-size="12" font-weight="600" fill="#2c3e50">Add Privacy Noise</text>
+        <text x="35" y="25" font-size="10" fill="#6c757d">Differential privacy</text>
+      </g>
+      
+      <g transform="translate(0, 100)">
+        <circle cx="15" cy="15" r="12" fill="#f093fb" filter="url(#glowEffect)"/>
+        <text x="15" y="19" text-anchor="middle" font-size="10" font-weight="bold" fill="white">3</text>
+        <text x="35" y="12" font-size="12" font-weight="600" fill="#2c3e50">Secure Aggregation</text>
+        <text x="35" y="25" font-size="10" fill="#6c757d">Multi-party computation</text>
+      </g>
+      
+      <g transform="translate(0, 150)">
+        <circle cx="15" cy="15" r="12" fill="#ff9a9e" filter="url(#glowEffect)"/>
+        <text x="15" y="19" text-anchor="middle" font-size="10" font-weight="bold" fill="white">4</text>
+        <text x="35" y="12" font-size="12" font-weight="600" fill="#2c3e50">Build Global Lattice</text>
+        <text x="35" y="25" font-size="10" fill="#6c757d">Federated concepts</text>
+      </g>
+      
+      <!-- Connection arrows -->
+      <path d="M 15 30 L 15 35" stroke="#ddd" stroke-width="2" marker-end="url(#arrow)"/>
+      <path d="M 15 80 L 15 85" stroke="#ddd" stroke-width="2" marker-end="url(#arrow)"/>
+      <path d="M 15 130 L 15 135" stroke="#ddd" stroke-width="2" marker-end="url(#arrow)"/>
+    </g>
+    
+    <!-- Privacy Guarantee Badge -->
+    <g transform="translate(20, 280)">
+      <rect x="0" y="0" width="240" height="30" fill="rgba(102, 126, 234, 0.1)" rx="6"/>
+      <text x="15" y="12" font-size="12" font-weight="600" fill="#667eea">🛡️ Privacy Guaranteed</text>
+      <text x="15" y="24" font-size="10" fill="#667eea">ε=1.0, δ=10⁻⁵ • Zero raw data sharing</text>
+    </g>
+  </g>
+  
+  <!-- Global Federated Concept Lattice -->
+  <g transform="translate(60, 480)">
+    <rect x="0" y="0" width="1200" height="450" fill="white" rx="20" filter="url(#modernShadow)"/>
+    <rect x="0" y="0" width="1200" height="60" fill="url(#headerGrad)" rx="20"/>
+    <rect x="0" y="40" width="1200" height="20" fill="url(#headerGrad)"/>
+    
+    <text x="30" y="35" font-size="24" fill="white">🌐</text>
+    <text x="70" y="25" font-size="22" font-weight="600" fill="white">Global Federated Concept Lattice</text>
+    <text x="70" y="45" font-size="16" font-weight="400" fill="rgba(255,255,255,0.9)">Privacy-Preserved Cross-Institutional Patient Risk Analysis</text>
+    
+    <!-- Lattice Visualization -->
+    <g transform="translate(100, 100)">
+      <!-- Top Level - Global Population -->
+      <g transform="translate(500, 20)">
+        <circle r="35" fill="url(#headerGrad)" stroke="#fff" stroke-width="4" filter="url(#glowEffect)"/>
+        <text y="-5" text-anchor="middle" font-size="14" font-weight="bold" fill="white">Global</text>
+        <text y="8" text-anchor="middle" font-size="12" fill="white">Population</text>
+        <text x="-80" y="-55" font-size="14" font-weight="600" fill="#2c3e50">All Patients (n≈6,000±50)</text>
+        <text x="-60" y="-40" font-size="12" fill="#6c757d">Privacy: ε=1.0, Utility: 95.2%</text>
+      </g>
+      
+      <!-- Level 2 - Main Risk Categories -->
+      <g transform="translate(150, 120)">
+        <circle r="28" fill="url(#cardGrad1)" stroke="#fff" stroke-width="3" filter="url(#glowEffect)"/>
+        <text y="-3" text-anchor="middle" font-size="11" font-weight="bold" fill="white">Diabetes</text>
+        <text y="8" text-anchor="middle" font-size="10" fill="white">Cluster</text>
+        <text x="-40" y="-45" font-size="12" font-weight="600" fill="#2c3e50">n≈2,100±30</text>
+        <text x="-30" y="-32" font-size="10" fill="#28a745">Utility: 92.3%</text>
+      </g>
+      
+      <g transform="translate(350, 120)">
+        <circle r="28" fill="url(#cardGrad2)" stroke="#fff" stroke-width="3" filter="url(#glowEffect)"/>
+        <text y="-3" text-anchor="middle" font-size="11" font-weight="bold" fill="white">Hypertension</text>
+        <text y="8" text-anchor="middle" font-size="10" fill="white">Cluster</text>
+        <text x="-40" y="-45" font-size="12" font-weight="600" fill="#2c3e50">n≈2,800±25</text>
+        <text x="-30" y="-32" font-size="10" fill="#28a745">Utility: 91.7%</text>
+      </g>
+      
+      <g transform="translate(550, 120)">
+        <circle r="28" fill="url(#cardGrad3)" stroke="#fff" stroke-width="3" filter="url(#glowEffect)"/>
+        <text y="-3" text-anchor="middle" font-size="11" font-weight="bold" fill="white">Obesity</text>
+        <text y="8" text-anchor="middle" font-size="10" fill="white">Cluster</text>
+        <text x="-40" y="-45" font-size="12" font-weight="600" fill="#2c3e50">n≈1,900±35</text>
+        <text x="-30" y="-32" font-size="10" fill="#28a745">Utility: 89.1%</text>
+      </g>
+      
+      <g transform="translate(750, 120)">
+        <circle r="28" fill="url(#privacyShield)" stroke="#fff" stroke-width="3" filter="url(#glowEffect)"/>
+        <text y="-3" text-anchor="middle" font-size="11" font-weight="bold" fill="white">Lifestyle</text>
+        <text y="8" text-anchor="middle" font-size="10" fill="white">Risk</text>
+        <text x="-40" y="-45" font-size="12" font-weight="600" fill="#2c3e50">n≈1,500±40</text>
+        <text x="-30" y="-32" font-size="10" fill="#28a745">Utility: 88.4%</text>
+      </g>
+      
+      <!-- Level 3 - Multi-Risk Combinations -->
+      <g transform="translate(250, 220)">
+        <circle r="24" fill="#e17055" stroke="#fff" stroke-width="3" filter="url(#glowEffect)"/>
+        <text y="-3" text-anchor="middle" font-size="9" font-weight="bold" fill="white">Diabetes +</text>
+        <text y="6" text-anchor="middle" font-size="9" font-weight="bold" fill="white">Hypertension</text>
+        <text x="-50" y="-40" font-size="11" font-weight="600" fill="#2c3e50">Multi-Risk A</text>
+        <text x="-35" y="-28" font-size="10" fill="#2c3e50">n≈850±20</text>
+        <text x="-30" y="-16" font-size="9" fill="#28a745">Utility: 87.2%</text>
+      </g>
+      
+      <g transform="translate(450, 220)">
+        <circle r="24" fill="#6c5ce7" stroke="#fff" stroke-width="3" filter="url(#glowEffect)"/>
+        <text y="-3" text-anchor="middle" font-size="9" font-weight="bold" fill="white">Complex</text>
+        <text y="6" text-anchor="middle" font-size="9" font-weight="bold" fill="white">Comorbid</text>
+        <text x="-40" y="-40" font-size="11" font-weight="600" fill="#2c3e50">Multi-Risk B</text>
+        <text x="-35" y="-28" font-size="10" fill="#2c3e50">n≈650±25</text>
+        <text x="-30" y="-16" font-size="9" fill="#28a745">Utility: 84.6%</text>
+      </g>
+      
+      <g transform="translate(650, 220)">
+        <circle r="24" fill="#00b894" stroke="#fff" stroke-width="3" filter="url(#glowEffect)"/>
+        <text y="-3" text-anchor="middle" font-size="9" font-weight="bold" fill="white">High-Risk</text>
+        <text y="6" text-anchor="middle" font-size="9" font-weight="bold" fill="white">Elderly</text>
+        <text x="-40" y="-40" font-size="11" font-weight="600" fill="#2c3e50">Age + Multi</text>
+        <text x="-35" y="-28" font-size="10" fill="#2c3e50">n≈420±30</text>
+        <text x="-30" y="-16" font-size="9" fill="#28a745">Utility: 86.9%</text>
+      </g>
+      
+      <!-- Level 4 - Critical Risk Cluster -->
+      <g transform="translate(450, 320)">
+        <circle r="20" fill="#e74c3c" stroke="#fff" stroke-width="3" filter="url(#glowEffect)"/>
+        <text y="-3" text-anchor="middle" font-size="8" font-weight="bold" fill="white">Critical</text>
+        <text y="5" text-anchor="middle" font-size="8" font-weight="bold" fill="white">Multi-Risk</text>
+        <text x="-45" y="-35" font-size="11" font-weight="600" fill="#2c3e50">Highest Priority</text>
+        <text x="-35" y="-23" font-size="10" fill="#2c3e50">n≈180±15</text>
+        <text x="-30" y="-11" font-size="9" fill="#dc3545">High Privacy Cost</text>
+      </g>
+      
+      <!-- Connection Lines with Animation -->
+      <g stroke="#bbb" stroke-width="2" fill="none" opacity="0.7">
+        <!-- Top to Level 2 -->
+        <line x1="500" y1="55" x2="150" y2="92">
+          <animate attributeName="stroke-dasharray" values="0,1000;20,980" dur="3s" repeatCount="indefinite"/>
+        </line>
+        <line x1="500" y1="55" x2="350" y2="92">
+          <animate attributeName="stroke-dasharray" values="0,1000;20,980" dur="3s" begin="0.5s" repeatCount="indefinite"/>
+        </line>
+        <line x1="500" y1="55" x2="550" y2="92">
+          <animate attributeName="stroke-dasharray" values="0,1000;20,980" dur="3s" begin="1s" repeatCount="indefinite"/>
+        </line>
+        <line x1="500" y1="55" x2="750" y2="92">
+          <animate attributeName="stroke-dasharray" values="0,1000;20,980" dur="3s" begin="1.5s" repeatCount="indefinite"/>
+        </line>
+        
+        <!-- Level 2 to Level 3 -->
+        <line x1="150" y1="148" x2="250" y2="196"/>
+        <line x1="350" y1="148" x2="250" y2="196"/>
+        <line x1="350" y1="148" x2="450" y2="196"/>
+        <line x1="550" y1="148" x2="450" y2="196"/>
+        <line x1="550" y1="148" x2="650" y2="196"/>
+        <line x1="750" y1="148" x2="650" y2="196"/>
+        
+        <!-- Level 3 to Level 4 -->
+        <line x1="250" y1="244" x2="450" y2="300"/>
+        <line x1="450" y1="244" x2="450" y2="300"/>
+        <line x1="650" y1="244" x2="450" y2="300"/>
+      </g>
+    </g>
+    
+    <!-- Performance Dashboard -->
+    <g transform="translate(50, 380)">
+      <rect x="0" y="0" width="1100" height="50" fill="rgba(102, 126, 234, 0.05)" rx="10"/>
+      
+      <!-- Privacy Metrics -->
+      <g transform="translate(30, 15)">
+        <text x="0" y="0" font-size="14" font-weight="600" fill="#667eea">🔒 Privacy Guarantees</text>
+        <text x="0" y="15" font-size="12" fill="#6c757d">ε-DP: 1.0 • δ: 10⁻⁵ • k-anonymity: k≥3</text>
+      </g>
+      
+      <!-- Utility Metrics -->
+      <g transform="translate(350, 15)">
+        <text x="0" y="0" font-size="14" font-weight="600" fill="#28a745">📊 Data Utility</text>
+        <text x="0" y="15" font-size="12" fill="#6c757d">Overall: 91.2% • Concept Fidelity: 94.7%</text>
+      </g>
+      
+      <!-- Performance Metrics -->
+      <g transform="translate(650, 15)">
+        <text x="0" y="0" font-size="14" font-weight="600" fill="#e17055">⚡ Performance</text>
+        <text x="0" y="15" font-size="12" fill="#6c757d">Latency: 0.3s • Throughput: 15K patients/min</text>
+      </g>
+      
+      <!-- Security Status -->
+      <g transform="translate(950, 15)">
+        <text x="0" y="0" font-size="14" font-weight="600" fill="#8e44ad">🛡️ Security</text>
+        <text x="0" y="15" font-size="12" fill="#6c757d">Encrypted • Audited • Compliant</text>
+      </g>
+    </g>
+  </g>
+  
+  <!-- Benefits Section -->
+  <g transform="translate(60, 960)">
+    <rect x="0" y="0" width="1480" height="200" fill="white" rx="20" filter="url(#modernShadow)"/>
+    
+    <!-- Title -->
+    <text x="740" y="35" text-anchor="middle" font-size="24" font-weight="600" fill="#2c3e50">
+      ✨ Key Benefits of Federated Medical Analytics
+    </text>
+    
+    <!-- Benefit Cards -->
+    <g transform="translate(60, 60)">
+      <!-- Privacy Protection -->
+      <g transform="translate(0, 0)">
+        <rect x="0" y="0" width="280" height="120" fill="rgba(102, 126, 234, 0.1)" rx="15"/>
+        <circle cx="30" cy="30" r="18" fill="#667eea"/>
+        <text x="30" y="35" text-anchor="middle" font-size="16" fill="white">🔒</text>
+        <text x="60" y="20" font-size="16" font-weight="600" fill="#2c3e50">Privacy by Design</text>
+        <text x="20" y="45" font-size="12" fill="#5a6c7d">• No raw patient data leaves hospitals</text>
+        <text x="20" y="60" font-size="12" fill="#5a6c7d">• Mathematical privacy guarantees</text>
+        <text x="20" y="75" font-size="12" fill="#5a6c7d">• Regulatory compliance (HIPAA, GDPR)</text>
+        <text x="20" y="90" font-size="12" fill="#5a6c7d">• Audit trails and transparency</text>
+      </g>
+      
+      <!-- Clinical Insights -->
+      <g transform="translate(300, 0)">
+        <rect x="0" y="0" width="280" height="120" fill="rgba(67, 233, 123, 0.1)" rx="15"/>
+        <circle cx="30" cy="30" r="18" fill="#43e97b"/>
+        <text x="30" y="35" text-anchor="middle" font-size="16" fill="white">🏥</text>
+        <text x="60" y="20" font-size="16" font-weight="600" fill="#2c3e50">Enhanced Clinical Insights</text>
+        <text x="20" y="45" font-size="12" fill="#5a6c7d">• Cross-institutional pattern discovery</text>
+        <text x="20" y="60" font-size="12" fill="#5a6c7d">• Population health analytics</text>
+        <text x="20" y="75" font-size="12" fill="#5a6c7d">• Risk stratification improvement</text>
+        <text x="20" y="90" font-size="12" fill="#5a6c7d">• Evidence-based decision making</text>
+      </g>
+      
+      <!-- Operational Efficiency -->
+      <g transform="translate(600, 0)">
+        <rect x="0" y="0" width="280" height="120" fill="rgba(247, 112, 154, 0.1)" rx="15"/>
+        <circle cx="30" cy="30" r="18" fill="#fa709a"/>
+        <text x="30" y="35" text-anchor="middle" font-size="16" fill="white">⚡</text>
+        <text x="60" y="20" font-size="16" font-weight="600" fill="#2c3e50">Operational Excellence</text>
+        <text x="20" y="45" font-size="12" fill="#5a6c7d">• Real-time analytics processing</text>
+        <text x="20" y="60" font-size="12" fill="#5a6c7d">• Scalable federated architecture</text>
+        <text x="20" y="75" font-size="12" fill="#5a6c7d">• Reduced data integration costs</text>
+        <text x="20" y="90" font-size="12" fill="#5a6c7d">• Automated compliance reporting</text>
+      </g>
+      
+      <!-- Research & Innovation -->
+      <g transform="translate(900, 0)">
+        <rect x="0" y="0" width="280" height="120" fill="rgba(255, 154, 158, 0.1)" rx="15"/>
+        <circle cx="30" cy="30" r="18" fill="#ff9a9e"/>
+        <text x="30" y="35" text-anchor="middle" font-size="16" fill="white">🔬</text>
+        <text x="60" y="20" font-size="16" font-weight="600" fill="#2c3e50">Research Acceleration</text>
+        <text x="20" y="45" font-size="12" fill="#5a6c7d">• Multi-site clinical studies</text>
+        <text x="20" y="60" font-size="12" fill="#5a6c7d">• Rare disease pattern detection</text>
+        <text x="20" y="75" font-size="12" fill="#5a6c7d">• Treatment outcome analysis</text>
+        <text x="20" y="90" font-size="12" fill="#5a6c7d">• Collaborative research networks</text>
+      </g>
+    </g>
+  </g>
+  
+  <!-- Arrow marker definition -->
+  <defs>
+    <marker id="arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L8,3 z" fill="#ddd"/>
+    </marker>
+  </defs>
+</svg>

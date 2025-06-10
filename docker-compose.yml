@@ -1,0 +1,333 @@
+services:
+  zookeeper:
+    image: confluentinc/cp-zookeeper:latest
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_SERVER_ID: 1
+    ports:
+      - "2181:2181"
+    networks:
+      - fedfca-network # Corrected typo
+
+  kafka-1:
+    image: confluentinc/cp-kafka:latest
+    hostname: kafka-1
+    container_name: kafka-1
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: "zookeeper:2181"
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,PLAINTEXT_HOST://0.0.0.0:29092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka-1:9092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_DELETE_TOPIC_ENABLE: "true"
+    depends_on:
+      - zookeeper
+    networks:
+      - fedfca-network
+
+  # kafka-2:
+  #   image: confluentinc/cp-kafka:latest
+  #   hostname: kafka-2
+  #   container_name: kafka-2
+  #   ports:
+  #     - "9093:9093"
+  #   environment:
+  #     KAFKA_BROKER_ID: 2
+  #     KAFKA_ZOOKEEPER_CONNECT: "zookeeper:2181"
+  #     KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka-2:9093
+  #     KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT
+  #     KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+  #     KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+  #     KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+  #   depends_on:
+  #     - zookeeper
+  #   networks:
+  #     - fedfca-network
+
+  # kafka-3:
+  #   image: confluentinc/cp-kafka:latest
+  #   hostname: kafka-3
+  #   container_name: kafka-3
+  #   ports:
+  #     - "9094:9094"
+  #   environment:
+  #     KAFKA_BROKER_ID: 3
+  #     KAFKA_ZOOKEEPER_CONNECT: "zookeeper:2181"
+  #     KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka-3:9094
+  #     KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT
+  #     KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+  #     KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+  #     KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+  #   depends_on:
+  #     - zookeeper
+  #   networks:
+  #     - fedfca-network
+  # schema:
+  #   image: confluentinc/cp-schema-registry:latest
+  #   hostname: schema
+  #   container_name: schema-registry
+  #   depends_on:
+  #     - kafka-1
+  #     - kafka-2
+  #     - kafka-3 
+  #   ports:
+  #     - "8081:8081"
+  #   environment:
+  #     SCHEMA_REGISTRY_HOST_NAME: schema
+  #     SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: 'kafka-1:9092'
+  #     SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8081
+  #   networks:
+  #     - fedfca-network
+  # magic:
+  #   image: digitsy/kafka-magic
+  #   ports:
+  #     - "8080:80"
+  #   environment:
+  #     KMAGIC_ALLOW_TOPIC_DELETE: "true"
+  #     KMAGIC_ALLOW_SCHEMA_DELETE: "true"
+
+  # Service for dataset preparation using the Dockerfile from the Canvas
+  dataset-preparator:
+    build:
+      context: ./src
+      dockerfile: dataset_prep/Dockerfile
+    volumes:
+      - ./prepared_federated_datasets:/app/federated_data_output
+      - ./config:/app/config
+    networks:
+      - fedfca-network
+  redis-insight:
+    image: redis/redisinsight:latest
+    restart: always
+    ports:
+      - "5540:5540"
+    volumes:
+      - redis-insight:/data
+  
+  agm_actor:
+    build:
+      context: ./src/server
+    hostname: agm_actor
+    container_name: agm_actor
+    restart: always
+    networks:
+      - fedfca-network
+    depends_on:
+      - kafka-1
+      # - kafka-2
+      # - kafka-3
+      - datastore
+      - dataset-preparator
+    volumes:
+      - "./config/:/data"
+      - "./src/commun:/app/commun"
+      - "./fedfca_core:/app/fedfca_core"
+      - ./prepared_federated_datasets:/data/federated_datasets
+    environment:
+      - KAFKA_BROKERS=kafka-1:9092
+      - KAFKA_BOOTSTRAP_SERVERS=kafka-1:9092
+      - KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://kafka-1:9092
+    deploy:
+      resources:
+        limits:
+          cpus: '8.0'
+          memory: 4G
+    logging:
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  alm_actor1:
+    build:
+      context: ./src/provider
+    hostname: alm_actor1
+    container_name: alm_actor1
+    restart: always
+    networks:
+      - fedfca-network
+    depends_on:
+      - kafka-1
+      # - kafka-2
+      # - kafka-3
+      - agm_actor
+      - datastore
+      - dataset-preparator
+    volumes:
+      - "./config/:/data"
+      - "./src/commun:/app/commun"
+      - "./fedfca_core:/app/fedfca_core"
+      - ./prepared_federated_datasets:/data/federated_datasets
+    environment:
+      - KAFKA_BROKERS=kafka-1:9092
+      - KAFKA_BOOTSTRAP_SERVERS=kafka-1:9092
+      - KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://kafka-1:9092
+      - ACTOR_ID_SUFFIX=1
+      - PROVIDER_INDEX=0
+  alm_actor2:
+    build:
+      context: ./src/provider
+    hostname: alm_actor2
+    container_name: alm_actor2
+    restart: always
+    networks:
+      - fedfca-network
+    depends_on:
+      - kafka-1
+      # - kafka-2
+      # - kafka-3
+      - agm_actor
+      - datastore
+      - dataset-preparator
+    volumes:
+      - "./config/:/data"
+      - "./src/commun:/app/commun"
+      - "./fedfca_core:/app/fedfca_core"
+      - ./prepared_federated_datasets:/data/federated_datasets
+    environment:
+      - KAFKA_BROKERS=kafka-1:9092
+      - KAFKA_BOOTSTRAP_SERVERS=kafka-1:9092
+      - KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://kafka-1:9092
+      - ACTOR_ID_SUFFIX=2
+      - PROVIDER_INDEX=1
+
+  # alm_actor2:
+  #   build:
+  #     context: ./src/provider
+  #   hostname: alm_actor2
+  #   container_name: alm_actor2
+  #   restart: always
+  #   networks:
+  #     - fedfca-network
+  #   depends_on:
+  #     - kafka-1
+  #     # - kafka-2
+  #     # - kafka-3
+  #     - agm_actor
+  #     - datastore
+  #     - dataset-preparator
+  #   volumes:
+  #     - "./config/:/data"
+  #     - "./src/commun:/app/commun"
+  #     - "./fedfca_core:/app/fedfca_core"
+  #     - ./prepared_federated_datasets:/data/federated_datasets
+  #   environment:
+  #     - KAFKA_BROKERS=kafka-1:9092
+      # - KAFKA_BOOTSTRAP_SERVERS=kafka-1:9092
+      # - KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://kafka-1:9092,kafka-2:9093,kafka-3:9094
+  #     - ACTOR_ID_SUFFIX=2
+  #     - PROVIDER_INDEX=1
+
+  # alm_actor3:
+  #   build:
+  #     context: ./participant
+  #     #dockerfile: DockerfileALMActor
+  #   hostname: alm_actor3
+  #   container_name: alm_actor3
+  #   restart: always
+  #   networks:
+  #     - fedfca-network # Corrected typo
+  #   depends_on:
+      # - kafka-1
+      # - kafka-2
+      # - kafka-3
+  #     - agm_actor
+  #     - datastore
+  #     - dataset-preparator
+  #   volumes:
+  #     - "./config/:/data"
+  #     - "./participant/logactor.py:/app/logactor.py"
+  #     - ./prepared_federated_datasets:/provider_data_root
+
+  # ... (alm_actor4, alm_actor5 - uncomment and configure similarly if needed)
+
+  # fca_actor:
+  #   build:
+  #     context: ./fca-fast
+  #     # dockerfile: DockerfileFCA # Ensure this Dockerfile exists in ./fca-fast
+  #   hostname: fca_actor
+  #   container_name: fca_actor
+  #   restart: always
+  #   networks:
+  #     - fedfca-network # Corrected typo
+  #   depends_on:
+  #     - kafka-1
+  #     - kafka-2
+  #     - kafka-3
+  #     - agm_actor
+  #     - datastore
+  #     - dataset-preparator # If fca_actor also consumes prepared data
+  #   volumes:
+  #     - "./config/:/data" # FCA_actor's own config
+  #     - "./common/*.py:/app/common/" # If logactor.py is specific to agm_actor
+  #     # Mount prepared datasets if this actor needs them directly
+  #     - ./prepared_federated_datasets:/provider_data_root
+
+  # live_monitor:
+  #   build:
+  #     context: ./monitor
+  #     # dockerfile: DockerfileMonitor # Ensure this Dockerfile exists in ./monitor
+  #   hostname: live_monitor
+  #   container_name: live_monitor
+  #   restart: always
+  #   networks:
+  #     - fedfca-network # Corrected typo
+  #   depends_on:
+  #     - kafka-1
+  #     - kafka-2
+  #     - kafka-3
+  #     - agm_actor
+  #     - datastore
+  #     # dataset-preparator is not a direct dependency for the monitor usually
+  #   ports:
+  #     - "8051:8051"
+  #   volumes:
+  #     - "./config/:/data" # Monitor's own config
+  #   environment:
+  #     - REDIS_HOST=datastore
+  #     - REDIS_PORT=6379
+  #   healthcheck:
+  #     test: ["CMD", "curl", "-f", "http://localhost:8051"]
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 3
+  #     start_period: 40s
+
+  datastore:
+    image: redis:7-alpine
+    hostname: datastore
+    container_name: datastore
+    ports:
+      - "6379:6379"
+    # environment:
+    #   - REDIS_PASSWORD=mysecret # Consider using Docker secrets for passwords
+    #   - REDIS_ACL_USERNAME=fedfac
+    #   - REDIS_ACL_PASSWORD=mysecret
+    # command: >
+    #   --requirepass mysecret
+    #   --save 60 1
+    #   --loglevel warning
+    networks:
+      - fedfca-network
+    volumes:
+      - redis-data:/data
+    restart: always
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+
+volumes:
+  redis-data: # Define the redis-data volume for Redis persistence
+  redis-insight:
+# The 'prepared_federated_datasets' is a host bind mount, not a named Docker volume in this setup.
+# If you prefer Docker to manage it, you could define it here and change the volume mappings.
+
+networks:
+  fedfca-network: # Corrected typo
+    driver: bridge
