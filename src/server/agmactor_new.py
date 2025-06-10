@@ -955,6 +955,7 @@ class AGMActor:
             provider_id = message.get('provider_id')
             encrypted_lattice = message.get('encrypted_lattice')
             provider_metrics = message.get('metrics', {})
+            encryption_key = message.get('encryption_key')
             
             # Initialize metrics collection
             processing_start = time.time()
@@ -964,19 +965,37 @@ class AGMActor:
             try:
                 # Get encryption key for this provider
                 key_id = message.get('encryption_key')
+                self.logger.debug(f"Encryption key ID: {key_id}")
                 if not key_id:
                     self.logger.error(f"No encryption key ID found in message from provider {provider_id}")
                     return False
                     
+                # Ensure key_id is a string (it might come as bytes)
+                if isinstance(key_id, bytes):
+                    try:
+                        key_id = key_id.decode('utf-8').strip()
+                        self.logger.debug(f"Converted key_id from bytes to string: {key_id}")
+                    except Exception as e:
+                        self.logger.error(f"Failed to decode key_id: {e}")
+                        return False
+                
+                self.logger.debug(f"Retrieving encryption key for provider {provider_id} with key_id: {key_id}")
                 encryption_key = self._get_encryption_key(federation_id, provider_id, key_id=key_id)
+                self.logger.debug(f"Encryption key: {encryption_key}")
                 if not encryption_key:
-                    self.logger.error(f"No encryption key found for provider {provider_id} with key ID {key_id}")
+                    self.logger.error(f"No encryption key found for provider {provider_id} with key ID: {key_id}")
+                    # Log available keys for debugging
+                    try:
+                        all_keys = self.crypto_manager.kms.redis.keys("fedfca:kms:agm:*")
+                        self.logger.debug(f"Available keys in Redis: {all_keys}")
+                    except Exception as e:
+                        self.logger.error(f"Error checking Redis keys: {e}")
                     return False
                     
                 # Decrypt the lattice
                 decryption_start = time.time()
                 try:
-                    decrypted_lattice = self.crypto_manager.decrypt(encrypted_lattice, encryption_key)
+                    decrypted_lattice = self.crypto_manager.decrypt(encryption_key,encrypted_lattice )
                 except Exception as e:
                     self.logger.error(f"Decryption failed for provider {provider_id} with key ID {key_id}: {str(e)}")
                     return False
@@ -1620,6 +1639,7 @@ class AGMActor:
         try:
             federation_id = message.get('federation_id')
             provider_id = message.get('provider_id')
+            encryption_key = message.get('encryption_key')
             encrypted_lattice = message.get('encrypted_lattice')
             provider_metrics = message.get('metrics', {})
             provider_comprehensive_metrics = message.get('comprehensive_metrics', {})
@@ -1727,7 +1747,7 @@ class AGMActor:
             # Decrypt the lattice - measure actual cryptographic overhead
             crypto_start = time.time()
             try:
-                decrypted_lattice = self.crypto_manager.decrypt(encrypted_lattice, encryption_key)
+                decrypted_lattice = self.crypto_manager.decrypt(encryption_key,encrypted_lattice )
                 logging.debug(f"Decrypted lattice from provider {provider_id}: {decrypted_lattice}")
                 if not decrypted_lattice:
                     self.logger.error("Failed to decrypt lattice: empty result")
