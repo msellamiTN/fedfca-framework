@@ -699,246 +699,428 @@ class AGMActor:
             self.logger.error(f"Error processing message: {str(e)}", exc_info=True)
             return False
 
+    # def _handle_lattice_result(self, message, message_overhead_metrics=None):
+    #     """
+    #     Handle lattice result from a provider with comprehensive metrics aggregation
+    #     to address reviewer comments about architectural vs computational overhead
+    #     """
+    #     logging.debug(f"Processing_handle_lattice_result message: {message}")
+    #     try:
+    #         federation_id = message.get('federation_id')
+    #         provider_id = message.get('provider_id')
+    #         encrypted_lattice = message.get('encrypted_lattice')
+    #         provider_metrics = message.get('metrics', {})
+    #         provider_comprehensive_metrics = message.get('comprehensive_metrics', {})
+    #         logging.debug(f"Received lattice result from provider {provider_id} for federation {federation_id}")
+    #         if not all([federation_id, provider_id, encrypted_lattice]):
+    #             self.logger.error("Missing required fields in lattice result message")
+    #             return False
+            
+    #         # Start comprehensive AGM-side metrics collection
+    #         agm_processing_start = time.time()
+    #         agm_metrics = {
+    #             'timestamps': {'agm_processing_start': agm_processing_start},
+    #             'communication_overhead': {},
+    #             'aggregation_overhead': {},
+    #             'architectural_overhead': {},
+    #             'federation_coordination': {}
+    #         }
+            
+    #         # Add message overhead metrics if provided
+    #         if message_overhead_metrics:
+    #             agm_metrics['communication_overhead']['message_processing'] = message_overhead_metrics
+            
+    #         # Monitor reception time
+    #         reception_time_start = time.time()
+            
+    #         # Check if federation exists - measure coordination overhead
+    #         federation_lookup_start = time.time()
+    #         if federation_id not in self.active_federations:
+    #             self.logger.warning(f"Received lattice for unknown federation: {federation_id}")
+    #             return False
+            
+    #         federation = self.active_federations[federation_id]
+    #         federation_lookup_time = time.time() - federation_lookup_start
+    #         agm_metrics['federation_coordination']['federation_lookup_time'] = federation_lookup_time
+            
+    #         # Initialize pending lattices for this federation if not exists
+    #         coordination_start = time.time()
+    #         if federation_id not in self.pending_lattices:
+    #             self.pending_lattices[federation_id] = {}
+            
+    #         # Initialize federation metrics aggregation if not exists
+    #         if federation_id not in getattr(self, 'federation_comprehensive_metrics', {}):
+    #             if not hasattr(self, 'federation_comprehensive_metrics'):
+    #                 self.federation_comprehensive_metrics = {}
+    #             self.federation_comprehensive_metrics[federation_id] = {
+    #                 'providers': {},
+    #                 'aggregated_metrics': {
+    #                     'total_core_algorithm_time': 0.0,
+    #                     'total_computation_overhead': 0.0,
+    #                     'total_encryption_overhead': 0.0,
+    #                     'total_architecture_overhead': 0.0,
+    #                     'total_communication_overhead': 0.0,
+    #                     'provider_count': 0,
+    #                     'lattice_sizes': [],
+    #                     'dataset_sizes': []
+    #                 },
+    #                 'comparison_analysis': {},
+    #                 'architectural_breakdown': {}
+    #             }
+            
+    #         coordination_time = time.time() - coordination_start
+    #         agm_metrics['federation_coordination']['setup_time'] = coordination_time
+            
+    #         # Check if provider is part of this federation
+    #         provider_validation_start = time.time()
+    #         if provider_id not in federation['providers']:
+    #             self.logger.warning(f"Received lattice from non-participant provider: {provider_id}")
+    #             return False
+            
+    #         # Skip if we already have a lattice from this provider
+    #         if provider_id in self.pending_lattices[federation_id]:
+    #             self.logger.info(f"Already received lattice from provider {provider_id}, skipping duplicate")
+    #             return True
+            
+    #         provider_validation_time = time.time() - provider_validation_start
+    #         agm_metrics['federation_coordination']['provider_validation_time'] = provider_validation_time
+            
+    #         # Decrypt the lattice - measure decryption overhead
+    #         self.logger.info(f"Decrypting lattice from provider {provider_id}")
+    #         decryption_start = time.time()
+    #         self.monitor.start_timer(f"lattice_decrypt_{federation_id}_{provider_id}")
+            
+    #         # Get the encryption key for this provider
+    #         key_lookup_start = time.time()
+    #         encryption_key = federation.get('encryption_keys', {}).get(provider_id)
+    #         if not encryption_key:
+    #             self.logger.error(f"No encryption key found for provider {provider_id}")
+    #             return False
+    #         key_lookup_time = time.time() - key_lookup_start
+            
+    #         agm_metrics['communication_overhead']['key_lookup_time'] = key_lookup_time
+            
+    #         # Decode base64 if needed - measure encoding overhead
+    #         base64_decode_start = time.time()
+    #         if isinstance(encrypted_lattice, str):
+    #             try:
+    #                 encrypted_lattice = base64.b64decode(encrypted_lattice)
+    #                 logging.debug(f"Decoded lattice from provider {provider_id}: {encrypted_lattice}")
+    #             except Exception as e:
+    #                 self.logger.error(f"Failed to decode base64 lattice: {e}")
+    #                 return False
+    #         base64_decode_time = time.time() - base64_decode_start
+    #         agm_metrics['communication_overhead']['base64_decode_time'] = base64_decode_time
+            
+    #         # Decrypt the lattice - measure actual cryptographic overhead
+    #         crypto_start = time.time()
+    #         try:
+    #             decrypted_lattice = self.crypto_manager.decrypt(encrypted_lattice, encryption_key)
+    #             logging.debug(f"Decrypted lattice from provider {provider_id}: {decrypted_lattice}")
+    #             if not decrypted_lattice:
+    #                 self.logger.error("Failed to decrypt lattice: empty result")
+    #                 return False
+                
+    #             crypto_time = time.time() - crypto_start
+    #             agm_metrics['communication_overhead']['decryption_time'] = crypto_time
+                
+    #             # Deserialize the lattice if it's a string - measure deserialization overhead
+    #             lattice_deserialization_start = time.time()
+    #             if isinstance(decrypted_lattice, (bytes, str)):
+    #                 try:
+    #                     decrypted_lattice = json.loads(decrypted_lattice)
+    #                 except json.JSONDecodeError as je:
+    #                     self.logger.error(f"Failed to deserialize decrypted lattice: {je}")
+    #                     return False
+                
+    #             lattice_deserialization_time = time.time() - lattice_deserialization_start
+    #             agm_metrics['communication_overhead']['lattice_deserialization_time'] = lattice_deserialization_time
+                
+    #             # Store the decrypted lattice
+    #             self.pending_lattices[federation_id][provider_id] = decrypted_lattice
+                
+    #         except Exception as e:
+    #             self.logger.error(f"Error decrypting lattice: {str(e)}", exc_info=True)
+    #             return False
+                
+    #         total_decrypt_time = self.monitor.stop_timer(f"lattice_decrypt_{federation_id}_{provider_id}")
+    #         total_decryption_overhead = time.time() - decryption_start
+            
+    #         # Aggregate provider metrics for comprehensive analysis
+    #         metrics_aggregation_start = time.time()
+            
+    #         # Store individual provider metrics
+    #         self.federation_comprehensive_metrics[federation_id]['providers'][provider_id] = {
+    #             'basic_metrics': provider_metrics,
+    #             'comprehensive_metrics': provider_comprehensive_metrics,
+    #             'agm_processing_metrics': agm_metrics
+    #         }
+            
+    #         # Extract and aggregate core metrics from provider
+    #         if provider_comprehensive_metrics and 'comparison_metrics' in provider_comprehensive_metrics:
+    #             comp_metrics = provider_comprehensive_metrics['comparison_metrics']
+    #             fed_metrics = self.federation_comprehensive_metrics[federation_id]['aggregated_metrics']
+                
+    #             # Aggregate core algorithm times (for centralized comparison)
+    #             core_time = comp_metrics.get('centralized_comparable_time', 0.0)
+    #             fed_metrics['total_core_algorithm_time'] += core_time
+                
+    #             # Aggregate overhead times
+    #             if 'federated_vs_centralized' in comp_metrics:
+    #                 fvc = comp_metrics['federated_vs_centralized']
+    #                 fed_metrics['total_computation_overhead'] += comp_metrics.get('computation_overhead', 0.0)
+    #                 fed_metrics['total_architecture_overhead'] += comp_metrics.get('architecture_overhead', 0.0)
+    #                 fed_metrics['total_encryption_overhead'] += comp_metrics.get('encryption_overhead', 0.0)
+                
+    #             # Track dataset and lattice sizes
+    #             if 'resource_utilization' in provider_comprehensive_metrics:
+    #                 ru = provider_comprehensive_metrics['resource_utilization']
+    #                 if 'dataset_size' in ru:
+    #                     fed_metrics['dataset_sizes'].append(ru['dataset_size'])
+    #                 if 'lattice_size' in ru:
+    #                     fed_metrics['lattice_sizes'].append(ru['lattice_size'])
+            
+    #         # Add AGM-side communication overhead to aggregated metrics
+    #         fed_metrics['total_communication_overhead'] += total_decryption_overhead
+    #         fed_metrics['provider_count'] += 1
+            
+    #         metrics_aggregation_time = time.time() - metrics_aggregation_start
+    #         agm_metrics['aggregation_overhead']['metrics_aggregation_time'] = metrics_aggregation_time
+            
+    #         # Save provider metrics with enhanced AGM metrics
+    #         enhanced_provider_metrics = provider_metrics.copy()
+    #         enhanced_provider_metrics.update({
+    #             'decrypt_time': total_decrypt_time,
+    #             'reception_time': time.time() - reception_time_start,
+    #             'agm_processing_overhead': total_decryption_overhead,
+    #             'communication_overhead_breakdown': agm_metrics['communication_overhead']
+    #         })
+    #         self._save_provider_metrics(federation_id, provider_id, enhanced_provider_metrics)
+            
+    #         self.logger.info(f"Successfully processed lattice from provider {provider_id} for federation {federation_id}")
+            
+    #         # Check if all lattices have been received
+    #         aggregation_check_start = time.time()
+    #         if len(self.pending_lattices[federation_id]) == len(federation['providers']):
+    #             aggregation_check_time = time.time() - aggregation_check_start
+    #             agm_metrics['aggregation_overhead']['final_check_time'] = aggregation_check_time
+                
+    #             self.logger.info(f"All {len(federation['providers'])} lattices received for federation {federation_id}, proceeding to aggregation")
+                
+    #             # Perform comprehensive analysis before aggregation
+    #             self._perform_comprehensive_analysis(federation_id)
+                
+    #             # Proceed with lattice aggregation
+    #             self._aggregate_lattices(federation_id)
+    #         else:
+    #             aggregation_check_time = time.time() - aggregation_check_start
+    #             agm_metrics['aggregation_overhead']['partial_check_time'] = aggregation_check_time
+                
+    #             received = len(self.pending_lattices[federation_id])
+    #             total = len(federation['providers'])
+    #             self.logger.info(f"Waiting for more lattices: {received}/{total} received")
+            
+    #         # Log comprehensive AGM processing metrics
+    #         total_agm_processing_time = time.time() - agm_processing_start
+    #         agm_metrics['timestamps']['total_agm_processing_time'] = total_agm_processing_time
+            
+    #         self.logger.info(
+    #             f"AGM PROCESSING OVERHEAD - Provider {provider_id}, Federation {federation_id}:\n"
+    #             f"  Total AGM Processing: {total_agm_processing_time:.4f}s\n"
+    #             f"  Decryption Overhead: {total_decryption_overhead:.4f}s\n"
+    #             f"  Federation Coordination: {coordination_time + federation_lookup_time + provider_validation_time:.4f}s\n"
+    #             f"  Communication Processing: {sum(agm_metrics['communication_overhead'].values()):.4f}s\n"
+    #             f"  Metrics Aggregation: {metrics_aggregation_time:.4f}s"
+    #         )
+            
+    #         return True
+            
+    #     except Exception as e:
+    #         self.logger.error(f"Unexpected error in _handle_lattice_result: {str(e)}", exc_info=True)
+    #         return False
     def _handle_lattice_result(self, message, message_overhead_metrics=None):
         """
-        Handle lattice result from a provider with comprehensive metrics aggregation
-        to address reviewer comments about architectural vs computational overhead
+        Handle lattice result messages from ALM providers and compute global metrics
+        
+        Args:
+            message: Dictionary containing lattice data and metrics
+            message_overhead_metrics: Additional message processing metrics
+            
+        Returns:
+            bool: True if processing was successful, False otherwise
         """
-        logging.debug(f"Processing_handle_lattice_result message: {message}")
         try:
+            # Extract basic message data
             federation_id = message.get('federation_id')
             provider_id = message.get('provider_id')
             encrypted_lattice = message.get('encrypted_lattice')
             provider_metrics = message.get('metrics', {})
-            provider_comprehensive_metrics = message.get('comprehensive_metrics', {})
-            logging.debug(f"Received lattice result from provider {provider_id} for federation {federation_id}")
-            if not all([federation_id, provider_id, encrypted_lattice]):
-                self.logger.error("Missing required fields in lattice result message")
-                return False
             
-            # Start comprehensive AGM-side metrics collection
-            agm_processing_start = time.time()
-            agm_metrics = {
-                'timestamps': {'agm_processing_start': agm_processing_start},
-                'communication_overhead': {},
-                'aggregation_overhead': {},
-                'architectural_overhead': {},
-                'federation_coordination': {}
-            }
+            # Initialize metrics collection
+            processing_start = time.time()
+            self.monitor.start_timer(f"lattice_processing_{federation_id}_{provider_id}")
             
-            # Add message overhead metrics if provided
-            if message_overhead_metrics:
-                agm_metrics['communication_overhead']['message_processing'] = message_overhead_metrics
-            
-            # Monitor reception time
-            reception_time_start = time.time()
-            
-            # Check if federation exists - measure coordination overhead
-            federation_lookup_start = time.time()
-            if federation_id not in self.active_federations:
-                self.logger.warning(f"Received lattice for unknown federation: {federation_id}")
-                return False
-            
-            federation = self.active_federations[federation_id]
-            federation_lookup_time = time.time() - federation_lookup_start
-            agm_metrics['federation_coordination']['federation_lookup_time'] = federation_lookup_time
-            
-            # Initialize pending lattices for this federation if not exists
-            coordination_start = time.time()
-            if federation_id not in self.pending_lattices:
-                self.pending_lattices[federation_id] = {}
-            
-            # Initialize federation metrics aggregation if not exists
-            if federation_id not in getattr(self, 'federation_comprehensive_metrics', {}):
-                if not hasattr(self, 'federation_comprehensive_metrics'):
-                    self.federation_comprehensive_metrics = {}
-                self.federation_comprehensive_metrics[federation_id] = {
-                    'providers': {},
-                    'aggregated_metrics': {
-                        'total_core_algorithm_time': 0.0,
-                        'total_computation_overhead': 0.0,
-                        'total_encryption_overhead': 0.0,
-                        'total_architecture_overhead': 0.0,
-                        'total_communication_overhead': 0.0,
-                        'provider_count': 0,
-                        'lattice_sizes': [],
-                        'dataset_sizes': []
-                    },
-                    'comparison_analysis': {},
-                    'architectural_breakdown': {}
-                }
-            
-            coordination_time = time.time() - coordination_start
-            agm_metrics['federation_coordination']['setup_time'] = coordination_time
-            
-            # Check if provider is part of this federation
-            provider_validation_start = time.time()
-            if provider_id not in federation['providers']:
-                self.logger.warning(f"Received lattice from non-participant provider: {provider_id}")
-                return False
-            
-            # Skip if we already have a lattice from this provider
-            if provider_id in self.pending_lattices[federation_id]:
-                self.logger.info(f"Already received lattice from provider {provider_id}, skipping duplicate")
-                return True
-            
-            provider_validation_time = time.time() - provider_validation_start
-            agm_metrics['federation_coordination']['provider_validation_time'] = provider_validation_time
-            
-            # Decrypt the lattice - measure decryption overhead
-            self.logger.info(f"Decrypting lattice from provider {provider_id}")
-            decryption_start = time.time()
-            self.monitor.start_timer(f"lattice_decrypt_{federation_id}_{provider_id}")
-            
-            # Get the encryption key for this provider
-            key_lookup_start = time.time()
-            encryption_key = federation.get('encryption_keys', {}).get(provider_id)
-            if not encryption_key:
-                self.logger.error(f"No encryption key found for provider {provider_id}")
-                return False
-            key_lookup_time = time.time() - key_lookup_start
-            
-            agm_metrics['communication_overhead']['key_lookup_time'] = key_lookup_time
-            
-            # Decode base64 if needed - measure encoding overhead
-            base64_decode_start = time.time()
-            if isinstance(encrypted_lattice, str):
-                try:
-                    encrypted_lattice = base64.b64decode(encrypted_lattice)
-                    logging.debug(f"Decoded lattice from provider {provider_id}: {encrypted_lattice}")
-                except Exception as e:
-                    self.logger.error(f"Failed to decode base64 lattice: {e}")
-                    return False
-            base64_decode_time = time.time() - base64_decode_start
-            agm_metrics['communication_overhead']['base64_decode_time'] = base64_decode_time
-            
-            # Decrypt the lattice - measure actual cryptographic overhead
-            crypto_start = time.time()
+            # 1. Decrypt and process the lattice
             try:
-                decrypted_lattice = self.crypto_manager.decrypt(encrypted_lattice, encryption_key)
-                logging.debug(f"Decrypted lattice from provider {provider_id}: {decrypted_lattice}")
-                if not decrypted_lattice:
-                    self.logger.error("Failed to decrypt lattice: empty result")
+                # Get encryption key for this provider
+                encryption_key = self._get_encryption_key(federation_id, provider_id)
+                if not encryption_key:
+                    self.logger.error(f"No encryption key found for provider {provider_id}")
                     return False
-                
-                crypto_time = time.time() - crypto_start
-                agm_metrics['communication_overhead']['decryption_time'] = crypto_time
-                
-                # Deserialize the lattice if it's a string - measure deserialization overhead
-                lattice_deserialization_start = time.time()
-                if isinstance(decrypted_lattice, (bytes, str)):
-                    try:
-                        decrypted_lattice = json.loads(decrypted_lattice)
-                    except json.JSONDecodeError as je:
-                        self.logger.error(f"Failed to deserialize decrypted lattice: {je}")
-                        return False
-                
-                lattice_deserialization_time = time.time() - lattice_deserialization_start
-                agm_metrics['communication_overhead']['lattice_deserialization_time'] = lattice_deserialization_time
+                    
+                # Decrypt the lattice
+                decryption_start = time.time()
+                decrypted_lattice = self.crypto_manager.decrypt(encrypted_lattice, encryption_key)
+                decryption_time = time.time() - decryption_start
                 
                 # Store the decrypted lattice
+                if federation_id not in self.pending_lattices:
+                    self.pending_lattices[federation_id] = {}
                 self.pending_lattices[federation_id][provider_id] = decrypted_lattice
                 
             except Exception as e:
-                self.logger.error(f"Error decrypting lattice: {str(e)}", exc_info=True)
+                self.logger.error(f"Error processing lattice: {str(e)}", exc_info=True)
                 return False
                 
-            total_decrypt_time = self.monitor.stop_timer(f"lattice_decrypt_{federation_id}_{provider_id}")
-            total_decryption_overhead = time.time() - decryption_start
-            
-            # Aggregate provider metrics for comprehensive analysis
-            metrics_aggregation_start = time.time()
-            
-            # Store individual provider metrics
-            self.federation_comprehensive_metrics[federation_id]['providers'][provider_id] = {
-                'basic_metrics': provider_metrics,
-                'comprehensive_metrics': provider_comprehensive_metrics,
-                'agm_processing_metrics': agm_metrics
-            }
-            
-            # Extract and aggregate core metrics from provider
-            if provider_comprehensive_metrics and 'comparison_metrics' in provider_comprehensive_metrics:
-                comp_metrics = provider_comprehensive_metrics['comparison_metrics']
-                fed_metrics = self.federation_comprehensive_metrics[federation_id]['aggregated_metrics']
+            # 2. Aggregate metrics from provider
+            try:
+                if federation_id not in self.federation_comprehensive_metrics:
+                    self._initialize_federation_metrics(federation_id)
+                    
+                # Store individual provider metrics
+                self.federation_comprehensive_metrics[federation_id]['providers'][provider_id] = {
+                    'basic_metrics': provider_metrics,
+                    'processing_metrics': {
+                        'decryption_time': decryption_time,
+                        'processing_time': time.time() - processing_start
+                    }
+                }
                 
-                # Aggregate core algorithm times (for centralized comparison)
-                core_time = comp_metrics.get('centralized_comparable_time', 0.0)
-                fed_metrics['total_core_algorithm_time'] += core_time
+                # Update aggregated metrics
+                self._update_aggregated_metrics(federation_id, provider_metrics)
                 
-                # Aggregate overhead times
-                if 'federated_vs_centralized' in comp_metrics:
-                    fvc = comp_metrics['federated_vs_centralized']
-                    fed_metrics['total_computation_overhead'] += comp_metrics.get('computation_overhead', 0.0)
-                    fed_metrics['total_architecture_overhead'] += comp_metrics.get('architecture_overhead', 0.0)
-                    fed_metrics['total_encryption_overhead'] += comp_metrics.get('encryption_overhead', 0.0)
+            except Exception as e:
+                self.logger.error(f"Error aggregating metrics: {str(e)}", exc_info=True)
+                # Continue processing even if metrics fail
                 
-                # Track dataset and lattice sizes
-                if 'resource_utilization' in provider_comprehensive_metrics:
-                    ru = provider_comprehensive_metrics['resource_utilization']
-                    if 'dataset_size' in ru:
-                        fed_metrics['dataset_sizes'].append(ru['dataset_size'])
-                    if 'lattice_size' in ru:
-                        fed_metrics['lattice_sizes'].append(ru['lattice_size'])
-            
-            # Add AGM-side communication overhead to aggregated metrics
-            fed_metrics['total_communication_overhead'] += total_decryption_overhead
-            fed_metrics['provider_count'] += 1
-            
-            metrics_aggregation_time = time.time() - metrics_aggregation_start
-            agm_metrics['aggregation_overhead']['metrics_aggregation_time'] = metrics_aggregation_time
-            
-            # Save provider metrics with enhanced AGM metrics
-            enhanced_provider_metrics = provider_metrics.copy()
-            enhanced_provider_metrics.update({
-                'decrypt_time': total_decrypt_time,
-                'reception_time': time.time() - reception_time_start,
-                'agm_processing_overhead': total_decryption_overhead,
-                'communication_overhead_breakdown': agm_metrics['communication_overhead']
-            })
-            self._save_provider_metrics(federation_id, provider_id, enhanced_provider_metrics)
-            
-            self.logger.info(f"Successfully processed lattice from provider {provider_id} for federation {federation_id}")
-            
-            # Check if all lattices have been received
-            aggregation_check_start = time.time()
-            if len(self.pending_lattices[federation_id]) == len(federation['providers']):
-                aggregation_check_time = time.time() - aggregation_check_start
-                agm_metrics['aggregation_overhead']['final_check_time'] = aggregation_check_time
-                
-                self.logger.info(f"All {len(federation['providers'])} lattices received for federation {federation_id}, proceeding to aggregation")
-                
-                # Perform comprehensive analysis before aggregation
-                self._perform_comprehensive_analysis(federation_id)
-                
-                # Proceed with lattice aggregation
-                self._aggregate_lattices(federation_id)
-            else:
-                aggregation_check_time = time.time() - aggregation_check_start
-                agm_metrics['aggregation_overhead']['partial_check_time'] = aggregation_check_time
-                
-                received = len(self.pending_lattices[federation_id])
-                total = len(federation['providers'])
-                self.logger.info(f"Waiting for more lattices: {received}/{total} received")
-            
-            # Log comprehensive AGM processing metrics
-            total_agm_processing_time = time.time() - agm_processing_start
-            agm_metrics['timestamps']['total_agm_processing_time'] = total_agm_processing_time
-            
-            self.logger.info(
-                f"AGM PROCESSING OVERHEAD - Provider {provider_id}, Federation {federation_id}:\n"
-                f"  Total AGM Processing: {total_agm_processing_time:.4f}s\n"
-                f"  Decryption Overhead: {total_decryption_overhead:.4f}s\n"
-                f"  Federation Coordination: {coordination_time + federation_lookup_time + provider_validation_time:.4f}s\n"
-                f"  Communication Processing: {sum(agm_metrics['communication_overhead'].values()):.4f}s\n"
-                f"  Metrics Aggregation: {metrics_aggregation_time:.4f}s"
-            )
-            
+            # 3. Check if all lattices are received and compute global lattice
+            if self._all_lattices_received(federation_id):
+                try:
+                    # Compute global lattice
+                    global_lattice = self._compute_global_lattice(federation_id)
+                    
+                    # Calculate final metrics
+                    self._compute_final_metrics(federation_id)
+                    
+                    # Store results
+                    self._store_federation_results(federation_id, global_lattice)
+                    
+                    # Log completion
+                    self.logger.info(f"Successfully processed all lattices for federation {federation_id}")
+                    
+                except Exception as e:
+                    self.logger.error(f"Error in global lattice computation: {str(e)}", exc_info=True)
+                    return False
+                    
+            self.monitor.stop_timer(f"lattice_processing_{federation_id}_{provider_id}")
             return True
             
         except Exception as e:
             self.logger.error(f"Unexpected error in _handle_lattice_result: {str(e)}", exc_info=True)
             return False
-
+    
+    def _initialize_federation_metrics(self, federation_id):
+        """Initialize metrics structure for a federation"""
+        self.federation_comprehensive_metrics[federation_id] = {
+            'providers': {},
+            'aggregated_metrics': {
+                'total_core_time': 0.0,
+                'total_processing_time': 0.0,
+                'total_decryption_time': 0.0,
+                'provider_count': 0,
+                'lattice_sizes': [],
+                'start_time': time.time(),
+                'end_time': None
+            }
+        }
+    
+    def _update_aggregated_metrics(self, federation_id, provider_metrics):
+        """Update aggregated metrics with data from a provider"""
+        fed_metrics = self.federation_comprehensive_metrics[federation_id]['aggregated_metrics']
+        
+        # Update core metrics
+        fed_metrics['total_core_time'] += provider_metrics.get('computation_time', 0)
+        fed_metrics['total_processing_time'] += provider_metrics.get('total_time', 0)
+        fed_metrics['total_decryption_time'] += provider_metrics.get('decryption_time', 0)
+        fed_metrics['provider_count'] += 1
+        
+        # Track lattice sizes
+        if 'lattice_size' in provider_metrics:
+            fed_metrics['lattice_sizes'].append(provider_metrics['lattice_size'])
+    
+    def _all_lattices_received(self, federation_id):
+        """Check if all expected lattices have been received"""
+        if federation_id not in self.active_federations:
+            return False
+        expected_providers = set(self.active_federations[federation_id]['providers'].keys())
+        received_providers = set(self.pending_lattices.get(federation_id, {}).keys())
+        return expected_providers.issubset(received_providers)
+    
+    def _compute_global_lattice(self, federation_id):
+        """Compute the global lattice from all provider lattices"""
+        lattices = list(self.pending_lattices[federation_id].values())
+        self.logger.info(f"Starting global lattice computation with {len(lattices)} lattices")
+        
+        # Perform the actual aggregation
+        global_lattice = self.aggregator.aggregate(lattices)
+        
+        self.logger.info(f"Global lattice computation complete. Size: {len(global_lattice)}")
+        return global_lattice
+    
+    def _compute_final_metrics(self, federation_id):
+        """Compute final aggregated metrics"""
+        fed_metrics = self.federation_comprehensive_metrics[federation_id]['aggregated_metrics']
+        
+        # Calculate averages
+        provider_count = max(1, fed_metrics['provider_count'])
+        fed_metrics.update({
+            'avg_core_time': fed_metrics['total_core_time'] / provider_count,
+            'avg_processing_time': fed_metrics['total_processing_time'] / provider_count,
+            'avg_decryption_time': fed_metrics['total_decryption_time'] / provider_count,
+            'end_time': time.time(),
+            'total_duration': time.time() - fed_metrics['start_time']
+        })
+        
+        # Add lattice size statistics
+        if fed_metrics['lattice_sizes']:
+            fed_metrics.update({
+                'avg_lattice_size': sum(fed_metrics['lattice_sizes']) / len(fed_metrics['lattice_sizes']),
+                'max_lattice_size': max(fed_metrics['lattice_sizes']),
+                'min_lattice_size': min(fed_metrics['lattice_sizes'])
+            })
+    
+    def _store_federation_results(self, federation_id, global_lattice):
+        """Store the final results of federation"""
+        # Store the global lattice
+        result_key = f"federation:{federation_id}:result"
+        self.redis_client.set(result_key, json.dumps({
+            'lattice': global_lattice,
+            'metrics': self.federation_comprehensive_metrics[federation_id]['aggregated_metrics'],
+            'timestamp': time.time()
+        }))
+        
+        # Update federation status
+        self.active_federations[federation_id]['status'] = 'completed'
+        self.active_federations[federation_id]['completion_time'] = time.time()
+        
+        # Log completion
+        metrics = self.federation_comprehensive_metrics[federation_id]['aggregated_metrics']
+        self.logger.info(
+            f"Federation {federation_id} completed. "
+            f"Providers: {metrics['provider_count']}, "
+            f"Avg Processing Time: {metrics['avg_processing_time']:.2f}s, "
+            f"Total Duration: {metrics['total_duration']:.2f}s"
+        )
     def _perform_comprehensive_analysis(self, federation_id):
         """
         Perform comprehensive analysis of federated vs centralized performance
