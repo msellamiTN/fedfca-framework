@@ -1861,12 +1861,24 @@ class AGMActor:
             total_agm_processing_time = time.time() - agm_processing_start
             agm_metrics['timestamps']['total_agm_processing_time'] = total_agm_processing_time
             
+            # Safely calculate total communication overhead
+            communication_overhead = 0.0
+            if 'communication_overhead' in agm_metrics:
+                for value in agm_metrics['communication_overhead'].values():
+                    if isinstance(value, (int, float)):
+                        communication_overhead += value
+                    elif isinstance(value, dict):
+                        # If it's a dictionary, try to sum its values
+                        for subvalue in value.values():
+                            if isinstance(subvalue, (int, float)):
+                                communication_overhead += subvalue
+            
             self.logger.info(
                 f"AGM PROCESSING OVERHEAD - Provider {provider_id}, Federation {federation_id}:\n"
                 f"  Total AGM Processing: {total_agm_processing_time:.4f}s\n"
                 f"  Decryption Overhead: {total_decryption_overhead:.4f}s\n"
                 f"  Federation Coordination: {coordination_time + federation_lookup_time + provider_validation_time:.4f}s\n"
-                f"  Communication Processing: {sum(agm_metrics['communication_overhead'].values()):.4f}s\n"
+                f"  Communication Processing: {communication_overhead:.4f}s\n"
                 f"  Metrics Aggregation: {metrics_aggregation_time:.4f}s"
             )
             
