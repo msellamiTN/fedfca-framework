@@ -2070,7 +2070,7 @@ class AGMActor:
             crypto_start = time.time()
             try:
                 decrypted_lattice = self.crypto_manager.decrypt(encryption_key,encrypted_lattice )
-                logging.debug(f"Decrypted lattice from provider {provider_id}: {decrypted_lattice}")
+                # logging.debug(f"Decrypted lattice from provider {provider_id}: {decrypted_lattice}")
                 if not decrypted_lattice:
                     self.logger.error("Failed to decrypt lattice: empty result")
                     return False
