@@ -25,12 +25,18 @@ class AGMActor:
     Implements Redis-based provider discovery and streamlined message exchange.
     """
     
-    def __init__(self, kafka_servers=None, max_workers=10):
+    def __init__(self, kafka_servers=None, max_workers=10, metrics_dir="/data/metrics"):
         # Dictionary to track which providers have received which keys
         self.provider_keys = {}
+        # Track sent configurations to prevent duplicates
+        self.sent_configs = set()  # format: (federation_id, provider_id)
+        # Track processed lattice results to prevent duplicates
+        self.processed_lattices = set()  # format: (federation_id, provider_id)
         # Initialize actor ID and logging
         import random
         import string
+        import os
+        
         random_id = ''.join(random.choices(string.ascii_lowercase + string.digits, k=8))
         self.actor_id = f"AGM_{random_id}"
         logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -38,6 +44,15 @@ class AGMActor:
         
         # Initialize performance monitoring
         self.monitor = FedFcaMonitor()
+        
+        # Metrics configuration
+        self.metrics_dir = metrics_dir
+        os.makedirs(self.metrics_dir, exist_ok=True)
+        self.metrics = {
+            'federations': {},
+            'providers': {},
+            'aggregation_metrics': {}
+        }
         
         # Load configuration
         self.config_file_path = "/data/config.yml"
@@ -80,7 +95,13 @@ class AGMActor:
         # State tracking
         self.active_federations = {}  # {fed_id: {'providers': [], 'status': ''}}
         self.pending_lattices = {}    # {fed_id: {provider_id: lattice}}
-        self.federation_metrics = {}  # {fed_id: {'aggregation_time': time, 'size': size}}
+        
+        # Enhanced metrics tracking
+        self.federation_metrics = {
+            'federations': {},  # Per-federation metrics
+            'providers': {},    # Per-provider metrics
+            'aggregations': {}  # Aggregation metrics
+        }
         
         # Initialize thread pool executor for async message processing
         self.executor = ThreadPoolExecutor(max_workers=max_workers)
@@ -412,15 +433,271 @@ class AGMActor:
         Load configuration from YAML file
         """
         try:
-            if os.path.exists(self.config_file_path):
-                with open(self.config_file_path, 'r') as file:
-                    return yaml.safe_load(file)
-            else:
-                self.logger.warning(f"Config file not found at {self.config_file_path}, using defaults")
-                return {}
+            with open(self.config_file_path, 'r') as f:
+                return yaml.safe_load(f)
         except Exception as e:
-            self.logger.error(f"Error loading config: {e}")
+            self.logger.error(f"Error loading config file: {e}")
             return {}
+
+    def _save_metrics_to_redis(self, federation_id, metrics):
+        """
+        Save metrics to Redis with structured keys and proper serialization
+        
+        Args:
+            federation_id: ID of the federation
+            metrics: Dictionary of metrics to save
+            
+        Returns:
+            bool: True if save was successful, False otherwise
+        """
+        if not self.redis_client:
+            self.logger.warning("Redis client not available, skipping metrics save")
+            return False
+            
+        try:
+            # Create a pipeline for atomic operations
+            pipeline = self.redis_client.pipeline()
+            
+            # Store federation-level metrics
+            fed_key = f"fedfca:metrics:federation:{federation_id}"
+            
+            # Convert all values to strings for Redis
+            redis_metrics = {}
+            for k, v in metrics.items():
+                if k != 'provider_metrics':  # Handle provider metrics separately
+                    if isinstance(v, (dict, list)):
+                        redis_metrics[k] = json.dumps(v)
+                    else:
+                        redis_metrics[k] = str(v)
+            
+            # Store federation metrics
+            if redis_metrics:
+                pipeline.hmset(fed_key, redis_metrics)
+                pipeline.expire(fed_key, 86400)  # 24h TTL
+            
+            # Store provider-level metrics if present
+            if 'provider_metrics' in metrics and isinstance(metrics['provider_metrics'], dict):
+                for provider_id, p_metrics in metrics['provider_metrics'].items():
+                    if not isinstance(p_metrics, dict):
+                        continue
+                        
+                    provider_key = f"fedfca:metrics:provider:{provider_id}:{federation_id}"
+                    
+                    # Convert all provider metric values to strings
+                    redis_provider_metrics = {}
+                    for k, v in p_metrics.items():
+                        if isinstance(v, (dict, list)):
+                            redis_provider_metrics[k] = json.dumps(v)
+                        else:
+                            redis_provider_metrics[k] = str(v)
+                    
+                    if redis_provider_metrics:
+                        pipeline.hmset(provider_key, redis_provider_metrics)
+                        pipeline.expire(provider_key, 86400)  # 24h TTL
+            
+            # Execute all operations atomically
+            pipeline.execute()
+            self.logger.debug(f"Successfully saved metrics for federation {federation_id} to Redis")
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"Error saving metrics to Redis: {e}", exc_info=True)
+            return False
+    
+    def _save_metrics_to_file(self, federation_id, metrics):
+        """
+        Save metrics to a JSON file for analysis with proper error handling and rotation
+        
+        Args:
+            federation_id: ID of the federation
+            metrics: Dictionary of metrics to save
+            
+        Returns:
+            str: Path to the saved file if successful, None otherwise
+        """
+        try:
+            # Ensure metrics directory exists
+            os.makedirs(self.metrics_dir, exist_ok=True)
+            
+            # Create a timestamp for the file
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            
+            # Create a clean filename with federation ID and timestamp
+            safe_fed_id = "".join(c if c.isalnum() else "_" for c in federation_id)
+            filename = os.path.join(
+                self.metrics_dir,
+                f"fedfca_metrics_{safe_fed_id}_{timestamp}.json"
+            )
+            
+            # Add comprehensive metadata
+            metrics_with_meta = {
+                'metadata': {
+                    'federation_id': federation_id,
+                    'export_timestamp': datetime.now().isoformat(),
+                    'system': {
+                        'hostname': os.uname().nodename if hasattr(os, 'uname') else 'unknown',
+                        'python_version': f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}",
+                    },
+                    'version': '1.0'
+                },
+                'metrics': metrics
+            }
+            
+            # Write to a temporary file first, then rename atomically
+            temp_filename = f"{filename}.tmp"
+            with open(temp_filename, 'w', encoding='utf-8') as f:
+                json.dump(metrics_with_meta, f, indent=2, ensure_ascii=False, default=str)
+            
+            # Atomic rename (works on POSIX systems)
+            os.replace(temp_filename, filename)
+            
+            self.logger.info(f"Metrics successfully saved to {filename}")
+            
+            # Clean up old metrics files (keep last 10)
+            self._cleanup_old_metrics(safe_fed_id)
+            
+            return filename
+            
+        except Exception as e:
+            self.logger.error(f"Error saving metrics to file: {e}", exc_info=True)
+            # Try to clean up temporary file if it exists
+            if 'temp_filename' in locals() and os.path.exists(temp_filename):
+                try:
+                    os.remove(temp_filename)
+                except:
+                    pass
+            return None
+            
+    def _cleanup_old_metrics(self, federation_prefix, max_files=10):
+        """
+        Clean up old metrics files, keeping only the most recent ones
+        
+        Args:
+            federation_prefix: Prefix of the federation ID for file matching
+            max_files: Maximum number of files to keep
+        """
+        try:
+            # Find all metric files for this federation
+            pattern = os.path.join(self.metrics_dir, f"fedfca_metrics_{federation_prefix}_*.json")
+            files = glob.glob(pattern)
+            
+            # Sort by modification time (newest first)
+            files.sort(key=os.path.getmtime, reverse=True)
+            
+            # Delete older files if we have more than max_files
+            if len(files) > max_files:
+                for old_file in files[max_files:]:
+                    try:
+                        os.remove(old_file)
+                        self.logger.debug(f"Cleaned up old metrics file: {old_file}")
+                    except Exception as e:
+                        self.logger.warning(f"Failed to clean up old metrics file {old_file}: {e}")
+                        
+        except Exception as e:
+            self.logger.warning(f"Error during metrics cleanup: {e}")
+    
+    def _collect_aggregation_metrics(self, federation_id):
+        """
+        Collect and aggregate comprehensive metrics for a federation
+        
+        Args:
+            federation_id: ID of the federation
+            
+        Returns:
+            dict: Aggregated metrics with detailed breakdowns
+        """
+        if federation_id not in self.federation_metrics['federations']:
+            self.logger.warning(f"No metrics found for federation {federation_id}")
+            return {}
+            
+        fed_metrics = self.federation_metrics['federations'][federation_id]
+        provider_metrics = {}
+        
+        # Initialize comprehensive metrics structure
+        agg_metrics = {
+            'federation': {
+                'id': federation_id,
+                'start_time': fed_metrics.get('start_time'),
+                'end_time': datetime.now().isoformat(),
+                'status': fed_metrics.get('status', 'unknown'),
+                'provider_count': 0,
+                'total_lattices_received': len(self.pending_lattices.get(federation_id, {})),
+            },
+            'timing': {
+                'total_duration': None,
+                'aggregation_time': None,
+                'per_phase': {}
+            },
+            'resources': {
+                'memory_usage': {},
+                'cpu_usage': {}
+            },
+            'lattice_metrics': {
+                'total_concepts': 0,
+                'avg_concepts_per_provider': 0,
+                'concept_reduction_ratio': 0,
+                'global_stability': 0
+            },
+            'providers': {}
+        }
+        
+        # Calculate duration if start time is available
+        if 'start_time' in fed_metrics and fed_metrics['start_time']:
+            try:
+                start_dt = datetime.fromisoformat(fed_metrics['start_time'])
+                agg_metrics['timing']['total_duration'] = (datetime.now() - start_dt).total_seconds()
+            except (ValueError, TypeError) as e:
+                self.logger.warning(f"Invalid start_time format: {e}")
+        
+        # Collect and aggregate provider metrics
+        provider_count = 0
+        total_concepts = 0
+        
+        for provider_id, metrics in self.federation_metrics['providers'].items():
+            if provider_id not in fed_metrics.get('providers', []):
+                continue
+                
+            provider_count += 1
+            provider_metrics[provider_id] = metrics
+            
+            # Aggregate lattice metrics
+            if 'lattice_size' in metrics:
+                total_concepts += metrics['lattice_size']
+            
+            # Add provider metrics to the output
+            agg_metrics['providers'][provider_id] = {
+                'computation_time': metrics.get('computation_time'),
+                'encryption_time': metrics.get('encryption_time'),
+                'lattice_size': metrics.get('lattice_size'),
+                'last_update': metrics.get('last_update')
+            }
+        
+        # Update federation metrics
+        agg_metrics['federation']['provider_count'] = provider_count
+        
+        # Calculate derived metrics
+        if provider_count > 0:
+            agg_metrics['lattice_metrics'].update({
+                'total_concepts': total_concepts,
+                'avg_concepts_per_provider': total_concepts / provider_count if provider_count > 0 else 0,
+                'concept_reduction_ratio': 0,  # Will be updated during aggregation
+                'global_stability': 0  # Will be updated during aggregation
+            })
+        
+        # Add aggregation metrics if available
+        if federation_id in self.federation_metrics['aggregations']:
+            agg_metrics.update({
+                'aggregation': self.federation_metrics['aggregations'][federation_id]
+            })
+            
+            # Update timing metrics from aggregation
+            if 'timing' in agg_metrics['aggregation']:
+                agg_metrics['timing'].update(agg_metrics['aggregation']['timing'])
+        
+        # Store the aggregated metrics
+        self.federation_metrics['aggregations'][federation_id] = agg_metrics
+        
+        return agg_metrics
     
     def get_registered_providers(self):
         """
@@ -515,8 +792,15 @@ class AGMActor:
     
     def _send_provider_config(self, federation_id, provider_id, encryption_key):
         """
-        Send configuration to a provider
+        Send configuration to a provider.
+        Ensures exactly one configuration is sent to each provider per federation.
         """
+        # Check if config was already sent to this provider for this federation
+        config_key = (federation_id, provider_id)
+        if config_key in self.sent_configs:
+            self.logger.warning(f"Configuration already sent to provider {provider_id} for federation {federation_id}")
+            return False
+            
         try:
             # Determine dataset path based on provider index
             provider_index = int(provider_id.split('_')[-1]) if '_' in provider_id else 1
@@ -556,6 +840,9 @@ class AGMActor:
             
             # Ensure the message is sent immediately
             self.producer.flush()
+            
+            # Mark config as sent for this provider
+            self.sent_configs.add(config_key)
             self.logger.info(f"Successfully sent configuration to provider {provider_id}")
             return True
             
@@ -646,12 +933,12 @@ class AGMActor:
         try:
             # Parse the message - measure deserialization overhead
             deserialization_start = time.time()
-            logging.debug(f"Processing received message: {message_data}")
+            # logging.debug(f"Processing received message: {message_data}")
             message = json.loads(message_data.value().decode('utf-8'))
             logging.debug(f"Keys of message: {message.keys()}")
             deserialization_time = time.time() - deserialization_start
             
-            self.logger.debug(f"Processing received message: {message}")
+            # self.logger.debug(f"Processing received message: {message}")
             topic = message_data.topic()
             action = message.get('action', 'unknown')
             logging.debug(f"Processing action: {action} on topic: {topic}")
@@ -664,8 +951,8 @@ class AGMActor:
                 'action': action
             }
             
-            self.logger.info(f"Processing message {message} on topic {topic}: {action}")
-            
+            # self.logger.info(f"Processing message {message} on topic {topic}: {action}")
+            self.logger.info(f"Processing message {message.get('metrics')} on topic {topic}: {action}")
             # Log message details
             message_id = message.get('message_id', 'N/A')
             federation_id = message.get('federation_id', 'N/A')
@@ -1001,10 +1288,17 @@ class AGMActor:
                     return False
                 decryption_time = time.time() - decryption_start
                 
-                # Store the decrypted lattice
+                # Mark this provider's lattice as received
                 if federation_id not in self.pending_lattices:
                     self.pending_lattices[federation_id] = {}
-                self.pending_lattices[federation_id][provider_id] = decrypted_lattice
+                    
+                self.pending_lattices[federation_id][provider_id] = {
+                    'lattice': decrypted_lattice,
+                    'metrics': provider_metrics
+                }
+                
+                # Mark this lattice as processed to prevent duplicates
+                self.processed_lattices.add((federation_id, provider_id))
                 
             except Exception as e:
                 self.logger.error(f"Error processing lattice: {str(e)}", exc_info=True)
@@ -1161,11 +1455,27 @@ class AGMActor:
             fed_metrics['lattice_sizes'].append(provider_metrics['lattice_size'])
     
     def _all_lattices_received(self, federation_id):
-        """Check if all expected lattices have been received"""
+        """
+        Check if all expected lattices have been received.
+        Also verifies no duplicate lattices were received.
+        """
         if federation_id not in self.active_federations:
+            self.logger.warning(f"No active federation found with ID {federation_id}")
             return False
+            
         expected_providers = set(self.active_federations[federation_id]['providers'].keys())
         received_providers = set(self.pending_lattices.get(federation_id, {}).keys())
+        
+        # Log any missing providers
+        missing = expected_providers - received_providers
+        if missing:
+            self.logger.info(f"Waiting for lattices from {len(missing)} providers: {', '.join(missing)}")
+            
+        # Check for any unexpected providers (shouldn't happen with proper tracking)
+        extra = received_providers - expected_providers
+        if extra:
+            self.logger.warning(f"Received lattices from unexpected providers: {', '.join(extra)}")
+            
         return expected_providers.issubset(received_providers)
     
     def _compute_global_lattice(self, federation_id):
@@ -1633,13 +1943,20 @@ class AGMActor:
     
     def _handle_lattice_result(self, message, message_overhead_metrics=None):
         """
-        Handle lattice result from a provider with comprehensive metrics aggregation
-        to address reviewer comments about architectural vs computational overhead
+        Handle lattice result from a provider with comprehensive metrics aggregation.
+        Ensures only one lattice result is processed per provider per federation.
         """
         try:
             fed_metrics={}
             federation_id = message.get('federation_id')
             provider_id = message.get('provider_id')
+            
+            # Check if we already processed a lattice from this provider for this federation
+            lattice_key = (federation_id, provider_id)
+            if lattice_key in self.processed_lattices:
+                self.logger.warning(f"Already processed lattice from provider {provider_id} for federation {federation_id}")
+                return False
+                
             encryption_key = message.get('encryption_key')
             encrypted_lattice = message.get('encrypted_lattice')
             provider_metrics = message.get('metrics', {})
@@ -1680,7 +1997,7 @@ class AGMActor:
             coordination_start = time.time()
             if federation_id not in self.pending_lattices:
                 self.pending_lattices[federation_id] = {}
-            
+                
             # Initialize federation metrics aggregation if not exists
             if not hasattr(self, 'federation_comprehensive_metrics'):
                 self.federation_comprehensive_metrics = {}
@@ -1742,7 +2059,7 @@ class AGMActor:
             if isinstance(encrypted_lattice, str):
                 try:
                     encrypted_lattice = base64.b64decode(encrypted_lattice)
-                    logging.debug(f"Decoded lattice from provider {provider_id}: {encrypted_lattice}")
+                    # logging.debug(f"Decoded lattice from provider {provider_id}: {encrypted_lattice}")
                 except Exception as e:
                     self.logger.error(f"Failed to decode base64 lattice: {e}")
                     return False
@@ -2372,7 +2689,7 @@ class AGMActor:
                     # Skip if no message received
                     if message is None:
                         continue
-                    self.logger.info(f"Received message: {message.value().decode('utf-8')}")    
+                    # self.logger.info(f"Received message: {message.value().decode('utf-8')}")    
                     # Handle message errors
                     if message.error():
                         if message.error().code() == KafkaError._PARTITION_EOF:
