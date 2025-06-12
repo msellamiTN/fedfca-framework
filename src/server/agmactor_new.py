@@ -441,11 +441,12 @@ class AGMActor:
 
     def _save_metrics_to_redis(self, federation_id, metrics):
         """
-        Save metrics to Redis with structured keys and proper serialization
+        Save metrics to Redis with structured keys, versioning, and comprehensive metadata.
+        Uses atomic pipeline operations for consistency.
         
         Args:
             federation_id: ID of the federation
-            metrics: Dictionary of metrics to save
+            metrics: Dictionary of metrics to save with 'federation' and 'providers' keys
             
         Returns:
             bool: True if save was successful, False otherwise
@@ -457,26 +458,73 @@ class AGMActor:
         try:
             pipeline = self.redis_client.pipeline()
             timestamp = int(time.time())
+            metadata = {
+                'version': '1.1',
+                'schema_version': '1.0',
+                'created_at': timestamp,
+                'updated_at': timestamp,
+                'federation_id': federation_id,
+                'source': 'agm_actor',
+                'metrics_version': '1.2',
+                'environment': os.getenv('ENVIRONMENT', 'development')
+            }
             
-            # Save federation metrics
+            # Save federation metrics with extended TTL (1 week)
             fed_key = f"fedfca:metrics:federation:{federation_id}"
             fed_metrics = metrics.get('federation', {})
             if fed_metrics:
                 pipeline.hmset(fed_key, {
+                    'metadata': json.dumps(metadata, default=str),
                     'metrics': json.dumps(fed_metrics, default=str),
-                    'updated_at': timestamp
+                    'timestamps': json.dumps({
+                        'created_at': timestamp,
+                        'updated_at': timestamp,
+                        'expires_at': timestamp + (7 * 24 * 60 * 60)  # 1 week from now
+                    })
                 })
-                pipeline.expire(fed_key, 60 * 60 * 24)  # 24h TTL
+                pipeline.expire(fed_key, 7 * 24 * 60 * 60)  # 1 week TTL
             
-            # Save provider metrics
+            # Save provider metrics with extended TTL (1 week)
             provider_metrics = metrics.get('providers', {})
             for provider_id, p_metrics in provider_metrics.items():
                 provider_key = f"fedfca:metrics:provider:{provider_id}:{federation_id}"
+                provider_metadata = metadata.copy()
+                provider_metadata['provider_id'] = provider_id
+                
                 pipeline.hmset(provider_key, {
+                    'metadata': json.dumps(provider_metadata, default=str),
                     'metrics': json.dumps(p_metrics, default=str),
-                    'updated_at': timestamp
+                    'timestamps': json.dumps({
+                        'created_at': timestamp,
+                        'updated_at': timestamp,
+                        'expires_at': timestamp + (7 * 24 * 60 * 60)  # 1 week from now
+                    })
                 })
-                pipeline.expire(provider_key, 60 * 60 * 24)  # 24h TTL
+                pipeline.expire(provider_key, 7 * 24 * 60 * 60)  # 1 week TTL
+            
+            # Save aggregation metrics if available
+            if 'aggregation' in metrics:
+                agg_key = f"fedfca:metrics:aggregation:{federation_id}"
+                pipeline.hmset(agg_key, {
+                    'metadata': json.dumps(metadata, default=str),
+                    'metrics': json.dumps(metrics['aggregation'], default=str),
+                    'timestamps': json.dumps({
+                        'created_at': timestamp,
+                        'updated_at': timestamp,
+                        'expires_at': timestamp + (7 * 24 * 60 * 60)  # 1 week from now
+                    })
+                })
+                pipeline.expire(agg_key, 7 * 24 * 60 * 60)  # 1 week TTL
+            
+            # Save time series data for historical analysis
+            ts_key = f"fedfca:timeseries:federation:{federation_id}"
+            ts_data = {
+                'timestamp': timestamp,
+                'metrics': metrics.get('federation', {})
+            }
+            pipeline.zadd(f"{ts_key}:raw", {json.dumps(ts_data): timestamp})
+            pipeline.zremrangebyrank(f"{ts_key}:raw", 0, -1000)  # Keep last 1000 data points
+            pipeline.expire(f"{ts_key}:raw", 30 * 24 * 60 * 60)  # 30 days TTL for time series
             
             # Execute all operations atomically
             pipeline.execute()
@@ -1916,7 +1964,7 @@ class AGMActor:
         Enhanced metrics saving with comprehensive analysis support
         """
         # ... existing save logic ...
-        
+        logging.info(f"Saving provider metrics for federation {federation_id}, provider {provider_id}: {metrics}")
         # Also save to comprehensive metrics for analysis
         if hasattr(self, 'federation_comprehensive_metrics') and federation_id in self.federation_comprehensive_metrics:
             if 'agm_provider_metrics' not in self.federation_comprehensive_metrics[federation_id]:
@@ -2181,7 +2229,7 @@ class AGMActor:
                 f"  Communication Processing: {communication_overhead:.4f}s\n"
                 f"  Metrics Aggregation: {metrics_aggregation_time:.4f}s"
             )
-            
+            self._save_provider_metrics(federation_id, provider_id, enhanced_provider_metrics)
             return True
             
         except Exception as e:
@@ -2585,16 +2633,23 @@ class AGMActor:
 
     def _save_provider_metrics(self, federation_id, provider_id, metrics):
         """
-        Save provider metrics to Redis and update in-memory metrics
+        Save provider metrics to Redis and update in-memory metrics with comprehensive error handling.
         
         Args:
             federation_id: ID of the federation
             provider_id: ID of the provider
-            metrics: Dictionary of metrics to save
+            metrics: Dictionary of metrics to save (must be JSON-serializable)
             
         Returns:
             bool: True if save was successful, False otherwise
         """
+        if not federation_id or not provider_id or not metrics:
+            self.logger.error(
+                f"Invalid arguments to _save_provider_metrics: "
+                f"federation_id={federation_id}, provider_id={provider_id}"
+            )
+            return False
+            
         try:
             # Initialize metrics structures if they don't exist
             if not hasattr(self, 'federation_comprehensive_metrics'):
@@ -2602,41 +2657,269 @@ class AGMActor:
             if federation_id not in self.federation_comprehensive_metrics:
                 self.federation_comprehensive_metrics[federation_id] = {'providers': {}}
             
-            # Update in-memory metrics
-            self.federation_comprehensive_metrics[federation_id]['providers'][provider_id] = metrics
+            # Add metadata and timestamps
+            timestamp = time.time()
+            metrics_with_metadata = {
+                'data': metrics,
+                'metadata': {
+                    'provider_id': provider_id,
+                    'federation_id': federation_id,
+                    'timestamp': timestamp,
+                    'source': 'agm_actor',
+                    'version': '1.1'
+                },
+                'timestamps': {
+                    'created_at': timestamp,
+                    'updated_at': timestamp
+                }
+            }
+            
+            # Update in-memory metrics with deep copy to avoid reference issues
+            import copy
+            self.federation_comprehensive_metrics[federation_id]['providers'][provider_id] = \
+                copy.deepcopy(metrics_with_metadata)
             
             # Save to Redis using the standard method
-            return self._save_metrics_to_redis(federation_id, {
-                'providers': {provider_id: metrics}
+            redis_success = self._save_metrics_to_redis(federation_id, {
+                'providers': {provider_id: metrics_with_metadata}
             })
+            
+            if redis_success:
+                self.logger.debug(
+                    f"Successfully saved metrics for provider {provider_id} "
+                    f"in federation {federation_id}"
+                )
+            else:
+                self.logger.warning(
+                    f"Failed to save Redis metrics for provider {provider_id} "
+                    f"in federation {federation_id}"
+                )
+            
+            # Also save to file for redundancy
+            try:
+                file_path = self._save_metrics_to_file(
+                    f"{federation_id}_{provider_id}",
+                    metrics_with_metadata
+                )
+                if file_path:
+                    self.logger.debug(f"Saved provider metrics to file: {file_path}")
+            except Exception as file_error:
+                self.logger.error(
+                    f"Error saving provider metrics to file: {file_error}",
+                    exc_info=True
+                )
+            
+            return redis_success
+            
         except Exception as e:
-            self.logger.error(f"Error in _save_provider_metrics: {e}", exc_info=True)
+            self.logger.error(
+                f"Error in _save_provider_metrics for provider {provider_id} "
+                f"in federation {federation_id}: {e}",
+                exc_info=True
+            )
             return False
+
+    def _save_federation_metrics(self, federation_id, metrics):
+        """
+        Save federation metrics to Redis and update in-memory metrics with comprehensive error handling.
+        
+        Args:
+            federation_id: ID of the federation
+            metrics: Dictionary of metrics to save (must be JSON-serializable)
+            
+        Returns:
+            bool: True if save was successful, False otherwise
+        """
+        if not federation_id or not metrics:
+            self.logger.error(
+                f"Invalid arguments to _save_federation_metrics: "
+                f"federation_id={federation_id}"
+            )
+            return False
+            
+        try:
+            # Initialize metrics structures if they don't exist
+            if not hasattr(self, 'federation_comprehensive_metrics'):
+                self.federation_comprehensive_metrics = {}
+            if federation_id not in self.federation_comprehensive_metrics:
+                self.federation_comprehensive_metrics[federation_id] = {}
+            
+            # Add metadata and timestamps
+            timestamp = time.time()
+            metrics_with_metadata = {
+                'data': metrics,
+                'metadata': {
+                    'federation_id': federation_id,
+                    'timestamp': timestamp,
+                    'source': 'agm_actor',
+                    'version': '1.1'
+                },
+                'timestamps': {
+                    'created_at': timestamp,
+                    'updated_at': timestamp
+                }
+            }
+            
+            # Update in-memory metrics with deep copy to avoid reference issues
+            import copy
+            self.federation_comprehensive_metrics[federation_id].update({
+                'federation': copy.deepcopy(metrics_with_metadata),
+                'last_updated': timestamp
+            })
+            
+            # Save to Redis using the standard method
+            redis_success = self._save_metrics_to_redis(federation_id, {
+                'federation': metrics_with_metadata,
+                'providers': self.federation_comprehensive_metrics[federation_id].get('providers', {})
+            })
+            
+            if redis_success:
+                self.logger.debug(
+                    f"Successfully saved metrics for federation {federation_id}"
+                )
+            else:
+                self.logger.warning(
+                    f"Failed to save Redis metrics for federation {federation_id}"
+                )
+            
+            # Also save to file for redundancy
+            try:
+                file_path = self._save_metrics_to_file(
+                    f"{federation_id}",
+                    self.federation_comprehensive_metrics[federation_id]
+                )
+                if file_path:
+                    self.logger.debug(f"Saved federation metrics to file: {file_path}")
+            except Exception as file_error:
+                self.logger.error(
+                    f"Error saving federation metrics to file: {file_error}",
+                    exc_info=True
+                )
+            
+            return redis_success
+            
+        except Exception as e:
+            self.logger.error(
+                f"Error in _save_federation_metrics for federation {federation_id}: {e}",
+                exc_info=True
+            )
+            return False
+
     def _publish_federation_complete(self, federation_id, metrics):
         """
-        Publish federation completion notification
+        Publish comprehensive federation completion notification with detailed metrics.
+        
+        Args:
+            federation_id: ID of the completed federation
+            metrics: Dictionary containing federation metrics including timing breakdowns
+            
+        Returns:
+            bool: True if publish was successful, False otherwise
         """
         try:
+            # Get current timestamp for the notification
+            current_time = time.time()
+            
+            # Prepare base message with metadata
             message = {
                 'action': 'federation_complete',
                 'federation_id': federation_id,
-                'metrics': {
-                    'global_stability': metrics.get('global_stability', 0),
-                    'total_time': metrics.get('total_time', 0)
-                },
-                'timestamp': time.time()
+                'timestamp': current_time,
+                'version': '1.1',
+                'source': 'agm_actor',
+                'status': metrics.get('status', 'completed'),
+                'environment': os.getenv('ENVIRONMENT', 'development')
             }
             
-            self.producer.produce(
-                "federation.complete",
-                value=json.dumps(message).encode('utf-8')
-            )
-            self.producer.flush()
-            self.logger.info(f"Published federation completion notification for {federation_id}")
-            return True
+            # Add basic metrics if available
+            if 'metrics' in metrics:
+                message['metrics'] = {
+                    'global_stability': metrics['metrics'].get('global_stability', 0),
+                    'total_time': metrics['metrics'].get('total_time', 0),
+                    'provider_count': len(metrics.get('providers', {})),
+                    'aggregated_concepts': metrics['metrics'].get('aggregated_concepts', 0),
+                    'total_input_concepts': metrics['metrics'].get('total_input_concepts', 0)
+                }
+            
+            # Add timing breakdown if available
+            if 'comprehensive_breakdown' in metrics:
+                message['timing_breakdown'] = {
+                    'core_aggregation_time': metrics['comprehensive_breakdown'].get('core_aggregation_time', 0),
+                    'preparation_overhead': metrics['comprehensive_breakdown'].get('preparation_overhead', 0),
+                    'post_processing_overhead': metrics['comprehensive_breakdown'].get('post_processing_overhead', 0),
+                    'total_agm_processing_time': metrics['comprehensive_breakdown'].get('total_agm_processing_time', 0),
+                    'architectural_overhead': metrics['comprehensive_breakdown'].get('architectural_overhead', 0)
+                }
+            
+            # Add provider-specific metrics summary
+            if 'providers' in metrics and isinstance(metrics['providers'], dict):
+                provider_metrics = metrics['providers']
+                message['provider_summary'] = {
+                    'total': len(provider_metrics),
+                    'avg_processing_time': sum(
+                        p.get('processing_time', 0) 
+                        for p in provider_metrics.values()
+                    ) / max(1, len(provider_metrics)),
+                    'successful': sum(
+                        1 for p in provider_metrics.values() 
+                        if p.get('status') == 'success'
+                    ),
+                    'failed': sum(
+                        1 for p in provider_metrics.values() 
+                        if p.get('status') == 'failed'
+                    )
+                }
+            
+            # Add error information if available
+            if 'error' in metrics:
+                message['error'] = {
+                    'message': str(metrics['error']),
+                    'type': metrics['error'].__class__.__name__ if hasattr(metrics['error'], '__class__') else 'Unknown',
+                    'phase': metrics.get('error_phase', 'unknown')
+                }
+            
+            # Add resource usage metrics if available
+            if 'resource_usage' in metrics:
+                message['resource_usage'] = metrics['resource_usage']
+            
+            # Publish the message with delivery callback
+            try:
+                self.producer.produce(
+                    "federation.complete",
+                    value=json.dumps(message, default=str).encode('utf-8'),
+                    callback=lambda err, msg, obj=message: self._on_federation_complete_delivery(err, msg, obj)
+                )
+                self.producer.flush(timeout=5.0)
+                self.logger.info(f"Published federation completion notification for {federation_id}")
+                return True
+                
+            except BufferError as be:
+                self.logger.error(f"Kafka producer buffer full, message dropped: {be}")
+                return False
+            except Exception as e:
+                self.logger.error(f"Error publishing to Kafka: {e}")
+                return False
+                
         except Exception as e:
-            self.logger.error(f"Error publishing federation completion: {e}")
+            self.logger.error(f"Error in _publish_federation_complete: {e}", exc_info=True)
             return False
+    
+    def _on_federation_complete_delivery(self, err, msg, message):
+        """
+        Handle Kafka delivery reports for federation completion messages.
+        
+        Args:
+            err: Error object if delivery failed, None on success
+            msg: The message that was produced or failed
+            message: The original message that was sent
+        """
+        if err is not None:
+            self.logger.error(f"Failed to deliver federation complete message: {err} (message: {message})")
+        else:
+            self.logger.debug(
+                f"Successfully delivered federation complete message "
+                f"to {msg.topic()} [{msg.partition()}] @ {msg.offset()}"
+            )
     
     def _save_provider_metrics(self, federation_id, provider_id, metrics):
         """
