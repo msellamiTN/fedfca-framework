@@ -1230,7 +1230,7 @@ class AGMActor:
             # Initialize metrics collection
             processing_start = time.time()
             self.monitor.start_timer(f"lattice_processing_{federation_id}_{provider_id}")
-            
+            logger.info(f"Received lattice result from provider {provider_id} for federation {federation_id}")
             # 1. Decrypt and process the lattice
             try:
                 # Get encryption key for this provider
@@ -2001,7 +2001,7 @@ class AGMActor:
                     'comparison_analysis': {},
                     'architectural_breakdown': {}
                 }
-                
+              
             # Get reference to federation metrics for easier access
             fed_metrics = self.federation_comprehensive_metrics[federation_id]['aggregated_metrics']
             

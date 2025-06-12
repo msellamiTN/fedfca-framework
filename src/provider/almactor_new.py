@@ -609,15 +609,27 @@ class ALMActor:
             
             # Special case for provider.config topic messages
             if topic == 'provider.config' or action == 'provider_config':
-                self.logger.info("Processing provider configuration message {}".format(message))
-                return self._handle_provider_config(message)
-                
+                # Only process messages intended for this provider
+                target_provider = message.get('provider_id')
+                if target_provider == self.actor_id:
+                    self.logger.info(f"Processing provider configuration message for {self.actor_id}")
+                    return self._handle_provider_config(message)
+                else:
+                    self.logger.debug(f"Ignoring provider config message intended for {target_provider}, I am {self.actor_id}")
+                    return False
+                    
             topic = message.get('topic')
             if not topic and hasattr(message_data, 'topic'):
                 try:
                     topic = message_data.topic()
                 except Exception:
                     pass
+                    
+            # For other message types, check if they're intended for this provider
+            target_provider = message.get('provider_id')
+            if target_provider and target_provider != self.actor_id:
+                self.logger.debug(f"Ignoring message intended for {target_provider}, I am {self.actor_id}")
+                return False
             
             # Log message details
             self.logger.debug(
