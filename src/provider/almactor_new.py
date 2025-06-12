@@ -114,6 +114,10 @@ class ALMActor:
     def __init__(self, kafka_servers=None, max_workers=10):
         # Initialize actor ID and logging
         self.actor_id = f"ALM_{os.environ.get('ACTOR_ID_SUFFIX', uuid.uuid4().hex[:6])}"
+        
+        # Track processed dataset-federation pairs to prevent duplicate processing
+        self.processed_datasets = set()  # Format: (federation_id, dataset_path)
+        self.active_federation_tasks = {}  # Track active tasks by federation_id
         logging.basicConfig(level=logging.DEBUG, format='%(asctime)s | %(levelname)s:%(name)s:%(message)s')
         self.logger = logging.getLogger(self.actor_id)
         
@@ -1209,6 +1213,8 @@ class ALMActor:
                 'network_time': 0,
                 'kafka_latency': 0,
                 'k8s_overhead': 0,
+                "provider_id": self.provider_id,
+                "federation_id": self.federation_id,
                 'service_discovery_time': 0,
                 'coordination_time': 0,
                 'agm_processing_time': 0,
@@ -1688,7 +1694,10 @@ class ALMActor:
     
     def _compute_local_lattice(self, dataset_path, threshold, context_sensitivity=0.0, encryption_key=None, federation_id=None):
         """
-        Compute local lattice using the FedFCA_core Provider.
+        Compute local lattice using the FedFCA_core Provider with comprehensive metrics collection.
+        
+        This method tracks detailed timing, resource usage, and performance metrics to enable
+        thorough comparison between FedFCA and centralized FCA implementations.
         
         Args:
             dataset_path (str): Path to the dataset file
@@ -1700,87 +1709,228 @@ class ALMActor:
         Returns:
             dict: Result containing the computed lattice with the following structure:
                 {
-                    'encrypted_lattice': list,  # The computed lattice (encrypted if crypto_manager is available)
-                    'decrypted_lattice': list,  # The decrypted lattice (if decryption succeeds)
-                    'metrics': dict,           # Computation metrics
-                    'status': str,             # Status of the computation
-                    'error': str               # Error message if computation failed
+                    'encrypted_lattice': list,    # The computed lattice (encrypted if crypto_manager is available)
+                    'decrypted_lattice': list,    # The decrypted lattice (if decryption succeeds)
+                    'metrics': {                  # Comprehensive computation metrics
+                        'timing': {               # Timing metrics in seconds
+                            'total': float,        # Total execution time
+                            'computation': float,  # Pure computation time
+                            'io': float,           # I/O operations time
+                            'encryption': float,   # Encryption/decryption time
+                            'serialization': float # Data serialization time
+                        },
+                        'resources': {             # Resource usage metrics
+                            'peak_memory_mb': float,  # Peak memory usage in MB
+                            'avg_cpu_percent': float, # Average CPU usage
+                            'thread_count': int       # Number of threads used
+                        },
+                        'lattice': {               # Lattice-specific metrics
+                            'concept_count': int,    # Number of concepts
+                            'stability': float,      # Average concept stability
+                            'size_bytes': int        # Size of serialized lattice in bytes
+                        },
+                        'network': {               # Network metrics
+                            'bytes_sent': int,       # Bytes sent over network
+                            'bytes_received': int,   # Bytes received
+                            'message_count': int     # Number of messages
+                        }
+                    },
+                    'status': str,               # Status of the computation
+                    'error': str                 # Error message if computation failed
                 }
         """
-        start_time = time.time()
+        # Initialize metrics collection
+        self.timing_metrics = {}
+        self.resource_metrics = []
+        overall_start = time.time()
+        
+        # Record initial resource usage
+        self._record_resource_usage()
+        
+        # Initialize result structure
         result = {
             'encrypted_lattice': None,
             'decrypted_lattice': None,
             'metrics': {
-                'computation_time': 0,
-                'lattice_size': 0,
-                'status': 'started'
+                'timing': {},
+                'resources': {},
+                'lattice': {},
+                'network': {
+                    'bytes_sent': 0,
+                    'bytes_received': 0,
+                    'message_count': 0
+                },
+                'status': 'started',
+                'start_time': overall_start,
+                'end_time': None,
+                'success': False
             },
             'status': 'error',
             'error': None
         }
         
+        # Record start of validation
+        validation_start = time.time()
+        validation_metrics = {}
+        
+        # Validate inputs with detailed error tracking
+        if not dataset_path or not os.path.isfile(dataset_path):
+            error_msg = f"Dataset file not found: {dataset_path}"
+            self.logger.error(f"[Fed {federation_id or 'N/A'}] {error_msg}")
+            result['error'] = error_msg
+            result['metrics'].update({
+                'status': 'failed',
+                'end_time': time.time(),
+                'duration': time.time() - overall_start,
+                'error': error_msg,
+                'validation': {
+                    'success': False,
+                    'error': 'file_not_found',
+                    'duration': time.time() - validation_start
+                }
+            })
+            return result
+            
+        if not 0 <= threshold <= 1.0:
+            error_msg = f"Threshold must be between 0.0 and 1.0, got {threshold}"
+            self.logger.error(f"[Fed {federation_id or 'N/A'}] {error_msg}")
+            result['error'] = error_msg
+            result['metrics'].update({
+                'status': 'failed',
+                'end_time': time.time(),
+                'duration': time.time() - overall_start,
+                'error': error_msg,
+                'validation': {
+                    'success': False,
+                    'error': 'invalid_threshold',
+                    'duration': time.time() - validation_start
+                }
+            })
+            return result
+            
+        # Record successful validation
+        validation_metrics['validation'] = {
+            'success': True,
+            'duration': time.time() - validation_start
+        }
+        
+        # Main processing block
         try:
-            # Validate inputs
-            if not dataset_path or not os.path.isfile(dataset_path):
-                error_msg = f"Dataset file not found: {dataset_path}"
-                self.logger.error(f"[Fed {federation_id or 'N/A'}] {error_msg}")
-                result['error'] = error_msg
-                result['metrics'].update({
-                    'status': 'failed',
-                    'end_time': time.time(),
-                    'duration': time.time() - start_time,
-                    'error': error_msg
-                })
-                return result
+            
+            # Record start of dataset loading
+            load_start = time.time()
+            
+            try:
+                # Log file information for debugging
+                file_size = os.path.getsize(dataset_path)
+                file_readable = os.access(dataset_path, os.R_OK)
+                self.logger.info(
+                    f"[Fed {federation_id or 'N/A'}] Processing dataset: {dataset_path} "
+                    f"(Size: {file_size / (1024*1024):.2f}MB, Readable: {file_readable})"
+                )
                 
-            if not 0 <= threshold <= 1.0:
-                error_msg = f"Threshold must be between 0.0 and 1.0, got {threshold}"
-                self.logger.error(f"[Fed {federation_id or 'N/A'}] {error_msg}")
+                # Log sample of the file content (first 3 lines) for debugging
+                try:
+                    with open(dataset_path, 'r', encoding='utf-8') as f:
+                        sample_lines = [next(f).strip() for _ in range(3) if f.readline()]
+                    self.logger.debug(f"[Fed {federation_id or 'N/A'}] File sample (first 3 lines): {sample_lines}")
+                except Exception as e:
+                    self.logger.warning(f"[Fed {federation_id or 'N/A'}] Could not read file sample: {str(e)}")
+                
+                # Record dataset metrics
+                dataset_metrics = {
+                    'file_size_bytes': file_size,
+                    'file_readable': file_readable,
+                    'load_duration': time.time() - load_start
+                }
+                
+                # Record resource usage after file loading
+                self._record_resource_usage()
+                
+            except Exception as e:
+                error_msg = f"Error during dataset loading: {str(e)}"
+                self.logger.error(error_msg, exc_info=True)
                 result['error'] = error_msg
                 result['metrics'].update({
                     'status': 'failed',
                     'end_time': time.time(),
-                    'duration': time.time() - start_time,
-                    'error': error_msg
+                    'duration': time.time() - overall_start,
+                    'error': error_msg,
+                    'dataset_loading': {
+                        'success': False,
+                        'error': str(e),
+                        'duration': time.time() - load_start
+                    }
                 })
                 return result
             
-            # Log file information for debugging
-            file_size = os.path.getsize(dataset_path)
-            file_readable = os.access(dataset_path, os.R_OK)
-            self.logger.info(
-                f"[Fed {federation_id or 'N/A'}] Processing dataset: {dataset_path} "
-                f"(Size: {file_size / (1024*1024):.2f}MB, Readable: {file_readable})"
-            )
+            # Record successful dataset loading
+            validation_metrics['dataset_loading'] = {
+                'success': True,
+                'duration': time.time() - load_start,
+                'file_size_bytes': file_size
+            }
             
-            # Log sample of the file content (first 3 lines) for debugging
+            # Record start of provider initialization
+            provider_init_start = time.time()
+            
             try:
-                with open(dataset_path, 'r', encoding='utf-8') as f:
-                    sample_lines = [next(f).strip() for _ in range(3) if f.readline()]
-                self.logger.debug(f"[Fed {federation_id or 'N/A'}] File sample (first 3 lines): {sample_lines}")
+                # Create provider instance with the dataset file
+                self.logger.info(
+                    f"[Fed {federation_id or 'N/A'}] Initializing Provider with "
+                    f"threshold={threshold}, context_sensitivity={context_sensitivity}"
+                )
+                
+                provider = core.Provider(
+                    id_provider=self.actor_id,
+                    input_file=dataset_path,
+                    threshold=threshold,
+                    context_sensitivity=context_sensitivity,
+                    encryption=self.crypto_manager if hasattr(self, 'crypto_manager') else None
+                )
+                
+                # Record provider initialization metrics
+                provider_init_time = time.time() - provider_init_start
+                validation_metrics['provider_initialization'] = {
+                    'success': True,
+                    'duration': provider_init_time
+                }
+                
+                # Record resource usage after provider initialization
+                self._record_resource_usage()
+                
             except Exception as e:
-                self.logger.warning(f"[Fed {federation_id or 'N/A'}] Could not read file sample: {str(e)}")
+                error_msg = f"Error initializing Provider: {str(e)}"
+                self.logger.error(error_msg, exc_info=True)
+                result['error'] = error_msg
+                result['metrics'].update({
+                    'status': 'failed',
+                    'end_time': time.time(),
+                    'duration': time.time() - overall_start,
+                    'error': error_msg,
+                    'provider_initialization': {
+                        'success': False,
+                        'error': str(e),
+                        'duration': time.time() - provider_init_start
+                    }
+                })
+                return result
             
-            # Create provider instance with the dataset file
-            self.logger.info(
-                f"[Fed {federation_id or 'N/A'}] Initializing Provider with "
-                f"threshold={threshold}, context_sensitivity={context_sensitivity}"
-            )
-            
-            provider = core.Provider(
-                id_provider=self.actor_id,
-                input_file=dataset_path,
-                threshold=threshold,
-                context_sensitivity=context_sensitivity,
-                encryption=self.crypto_manager if hasattr(self, 'crypto_manager') else None
-            )
-            
-            # Compute the lattice
-            self.logger.info(f"[Fed {federation_id or 'N/A'}] Starting lattice computation...")
+            # Record start of lattice computation
+            compute_start = time.time()
             
             try:
+                # Compute the lattice
+                self.logger.info(f"[Fed {federation_id or 'N/A'}] Starting lattice computation...")
+                
+                # Record resource usage before computation
+                self._record_resource_usage()
+                
+                # Start computation timer
+                comp_start = time.time()
                 lattice_result = provider.compute_local_lattice()
+                comp_time = time.time() - comp_start
+                
                 self.logger.debug(f"[Fed {federation_id or 'N/A'}] Raw lattice result type: {type(lattice_result)}")
                 
                 if lattice_result is None:
@@ -1791,126 +1941,239 @@ class ALMActor:
                 
                 # Get the lattice and ensure it's serializable
                 lattice = lattice_result.get('lattice', [])
-                self.logger.info(f"[Fed {federation_id or 'N/A'}] Successfully computed lattice with {len(lattice)} concepts")
+                lattice_size = len(lattice)
                 
-                # Convert frozensets to JSON-serializable types BEFORE any operations
+                # Record computation metrics
+                compute_metrics = {
+                    'success': True,
+                    'duration': comp_time,
+                    'lattice_size': lattice_size,
+                    'concepts_per_second': lattice_size / comp_time if comp_time > 0 else 0,
+                    'end_time': time.time()
+                }
+                
+                self.logger.info(
+                    f"[Fed {federation_id or 'N/A'}] Successfully computed lattice with {lattice_size} concepts "
+                    f"in {comp_time:.2f}s ({compute_metrics['concepts_per_second']:.2f} concepts/s)"
+                )
+                
+                # Record resource usage after computation
+                self._record_resource_usage()
+                
+                # Convert frozensets to JSON-serializable types
+                serialization_start = time.time()
                 serializable_lattice = convert_frozenset(lattice)
+                serialization_time = time.time() - serialization_start
                 
                 # Store the decrypted lattice (with frozensets converted)
                 result['decrypted_lattice'] = serializable_lattice
                 
+                # Record start of encryption
+                encryption_start = time.time()
+                
+                # Initialize encryption metrics
+                encryption_metrics = {
+                    'encryption': {
+                        'success': False,
+                        'encrypted': False,
+                        'duration': 0,
+                        'original_size_bytes': 0,
+                        'encrypted_size_bytes': 0,
+                        'encryption_ratio': 1.0
+                    },
+                    'timing.encryption': 0
+                }
+                
                 # Encrypt the lattice if we have a crypto manager and encryption key
-                if hasattr(self, 'crypto_manager') and self.crypto_manager:
+                if hasattr(self, 'crypto_manager') and self.crypto_manager and encryption_key:
                     try:
-                        key_to_use = encryption_key or getattr(self, 'encryption_key', None)
-                        if key_to_use:
-                            # Use the already serializable lattice for JSON serialization
-                            serialized_lattice = json.dumps({"encrypted_lattice": serializable_lattice}).encode('utf-8')
-                            encrypted_lattice = self.crypto_manager.encrypt(key_to_use, serialized_lattice)
-                            
-                            if encrypted_lattice:
-                                result['encrypted_lattice'] = encrypted_lattice
-                                self.logger.info(
-                                    f"[Fed {federation_id or 'N/A'}] "
-                                    f"Successfully encrypted lattice with {len(serializable_lattice)} concepts"
-                                )
-                            else:
-                                self.logger.warning(
-                                    f"[Fed {federation_id or 'N/A'}] "
-                                    "Encryption returned None/empty result, falling back to unencrypted lattice"
-                                )
-                                # Fall back to unencrypted lattice if encryption returns None
-                                result['encrypted_lattice'] = serializable_lattice
-                        else:
-                            self.logger.warning(
-                                f"[Fed {federation_id or 'N/A'}] "
-                                "No encryption key available, using unencrypted lattice"
-                            )
-                            # Use unencrypted lattice if no key is available
-                            result['encrypted_lattice'] = serializable_lattice
-                    except Exception as e:
-                        error_msg = f"Failed to encrypt lattice: {str(e)}"
-                        self.logger.error(f"[Fed {federation_id or 'N/A'}] {error_msg}", exc_info=True)
-                        self.logger.warning(
-                            f"[Fed {federation_id or 'N/A'}] "
-                            "Falling back to unencrypted lattice due to encryption error"
-                        )
-                        # Fall back to unencrypted lattice if encryption fails
-                        result['encrypted_lattice'] = serializable_lattice  # Use serializable version
-                        result['error'] = error_msg
-                        # Don't return here, continue with the unencrypted lattice
-                else:
-                    # No crypto manager, use unencrypted lattice
-                    result['encrypted_lattice'] = serializable_lattice
+                        self.logger.info(f"[Fed {federation_id or 'N/A'}] Encrypting lattice...")
                         
-                # Update metrics based on computation and encryption status
-                computation_time = time.time() - start_time
-                lattice_size = len(serializable_lattice)  # Use serializable lattice for size
-                encryption_success = 'encrypted_lattice' in result and bool(result['encrypted_lattice'])
-                
-                # Determine overall status
-                if 'error' in result and result['error']:
-                    status = 'completed_with_errors'
-                    self.logger.warning(
-                        f"[Fed {federation_id or 'N/A'}] "
-                        f"Computation completed with errors: {result['error']}"
-                    )
+                        # Record pre-encryption resource usage
+                        self._record_resource_usage()
+                        
+                        # Convert the lattice to JSON string for encryption
+                        lattice_json = json.dumps(serializable_lattice).encode('utf-8')
+                        
+                        # Record serialized size before encryption
+                        serialized_size = len(lattice_json)
+                        
+                        # Encrypt the lattice
+                        encrypt_start = time.time()
+                        encrypted_data = self.crypto_manager.encrypt(lattice_json, encryption_key)
+                        encryption_time = time.time() - encrypt_start
+                        
+                        # Store the encrypted lattice and key ID
+                        result['encrypted_lattice'] = encrypted_data
+                        result['encryption_key_id'] = encryption_key  # Store the key ID, not the key material
+                        
+                        # Calculate encryption metrics
+                        encrypted_size = len(encrypted_data) if encrypted_data else 0
+                        encryption_ratio = encrypted_size / serialized_size if serialized_size > 0 else 0
+                        
+                        # Update encryption metrics
+                        encryption_metrics = {
+                            'encryption': {
+                                'success': True,
+                                'encrypted': True,
+                                'duration': encryption_time,
+                                'original_size_bytes': serialized_size,
+                                'encrypted_size_bytes': encrypted_size,
+                                'encryption_ratio': encryption_ratio,
+                                'algorithm': getattr(encryption_key, 'algorithm', 'unknown') if hasattr(encryption_key, 'algorithm') else 'unknown'
+                            },
+                            'timing.encryption': encryption_time
+                        }
+                        
+                        self.logger.info(
+                            f"[Fed {federation_id or 'N/A'}] Successfully encrypted lattice. "
+                            f"Original: {serialized_size} bytes, "
+                            f"Encrypted: {encrypted_size} bytes "
+                            f"(ratio: {encryption_ratio:.2f}) in {encryption_time:.3f}s"
+                        )
+                        
+                        # Log encryption details (without exposing sensitive key material)
+                        key_info = {}
+                        if hasattr(encryption_key, 'key_id'):
+                            key_info['key_id'] = encryption_key.key_id
+                            key_info['key_type'] = type(encryption_key).__name__
+                            
+                        self.logger.debug(
+                            f"[Fed {federation_id or 'N/A'}] Encryption details: {key_info}"
+                        )
+                        
+                        # Record post-encryption resource usage
+                        self._record_resource_usage()
+                        
+                    except Exception as e:
+                        error_msg = f"Error during lattice encryption: {str(e)}"
+                        self.logger.error(error_msg, exc_info=True)
+                        result['error'] = error_msg
+                        result['metrics'].update({
+                            'status': 'failed',
+                            'end_time': time.time(),
+                            'duration': time.time() - overall_start,
+                            'error': error_msg,
+                            'encryption': {
+                                'success': False,
+                                'error': str(e),
+                                'duration': time.time() - encryption_start
+                            }
+                        })
+                        return result
                 else:
-                    status = 'completed'
+                    # If no encryption, store the serializable lattice directly
+                    result['encrypted_lattice'] = serializable_lattice
+                    serialized_size = len(json.dumps(serializable_lattice).encode('utf-8'))
+                    
+                    # Update encryption metrics for unencrypted case
+                    encryption_metrics = {
+                        'encryption': {
+                            'success': True,
+                            'encrypted': False,
+                            'duration': 0,
+                            'original_size_bytes': serialized_size,
+                            'encrypted_size_bytes': serialized_size,
+                            'encryption_ratio': 1.0
+                        },
+                        'timing.encryption': 0
+                    }
+                    
+                    self.logger.info(
+                        f"[Fed {federation_id or 'N/A'}] Storing unencrypted lattice. "
+                        f"Size: {serialized_size} bytes"
+                    )
                 
-                # Update metrics
+                # Update metrics with computation and encryption results
+                total_duration = time.time() - overall_start
                 result['metrics'].update({
-                    'computation_time': computation_time,
-                    'lattice_size': lattice_size,
-                    'encryption_success': encryption_success,
-                    'status': status,
+                    'timing': {
+                        'total': total_duration,
+                        'computation': comp_time,
+                        'serialization': serialization_time,
+                        'io': dataset_metrics.get('load_duration', 0),
+                        'encryption': encryption_metrics['timing.encryption']
+                    },
+                    'lattice': {
+                        'concept_count': lattice_size,
+                        'stability': lattice_result.get('stability', 0.0),
+                        'size_bytes': len(json.dumps(serializable_lattice).encode('utf-8'))
+                    },
+                    'dataset': dataset_metrics,
+                    'computation': compute_metrics,
+                    'status': 'completed',
                     'end_time': time.time(),
-                    'duration': computation_time,
-                    'lattice_computed': True,
-                    'lattice_encrypted': encryption_success
+                    'success': True
                 })
                 
-                # Set overall result status
-                result['status'] = 'success' if status == 'completed' else 'completed_with_errors'
+                # Add encryption metrics
+                result['metrics'].update(encryption_metrics)
                 
+                # Calculate resource usage statistics
+                if hasattr(self, 'resource_metrics') and self.resource_metrics:
+                    result['metrics']['resources'] = {
+                        'peak_memory_mb': max(m.get('memory_rss_mb', 0) for m in self.resource_metrics),
+                        'avg_memory_mb': sum(m.get('memory_rss_mb', 0) for m in self.resource_metrics) / len(self.resource_metrics),
+                        'peak_cpu_percent': max(m.get('cpu_percent', 0) for m in self.resource_metrics),
+                        'avg_cpu_percent': sum(m.get('cpu_percent', 0) for m in self.resource_metrics) / len(self.resource_metrics),
+                        'samples': len(self.resource_metrics)
+                    }
+                
+                # Log completion with comprehensive metrics
                 self.logger.info(
-                    f"[Fed {federation_id or 'N/A'}] "
-                    f"Lattice computation completed with status: {status}, "
-                    f"size: {lattice_size}, time: {computation_time:.2f}s, "
-                    f"encrypted: {encryption_success}"
+                    f"[Fed {federation_id or 'N/A'}] Lattice computation completed in {total_duration:.2f}s. "
+                    f"Concepts: {result['metrics']['lattice']['concept_count']}, "
+                    f"Computation: {result['metrics']['timing']['computation']:.2f}s, "
+                    f"Peak memory: {result['metrics']['resources']['peak_memory_mb']:.1f}MB"
                 )
                 
+                # Save metrics to Redis if configured
+                if hasattr(self, 'redis_client'):
+                    self._save_metrics_to_redis(federation_id, result['metrics'])
+                
+                # Clean up sensitive data
+                if 'encryption_key' in locals():
+                    del encryption_key
+                
+                return result
+                
             except Exception as e:
-                error_msg = f"Error during lattice computation: {str(e)}"
-                self.logger.error(f"[Fed {federation_id or 'N/A'}] {error_msg}", exc_info=True)
-                result.update({
-                    'error': error_msg,
-                    'metrics': {
-                        'status': 'failed',
-                        'end_time': time.time(),
-                        'duration': time.time() - start_time,
-                        'error': str(e)
-                    }
-                })
-            
-            return result
-            
-        except Exception as e:
-            error_msg = f"Unexpected error in _compute_local_lattice: {str(e)}"
-            self.logger.error(f"[Fed {federation_id or 'N/A'}] {error_msg}", exc_info=True)
-            result.update({
-                'error': error_msg,
-                'metrics': {
+                error_msg = f"Unexpected error during lattice computation: {str(e)}"
+                self.logger.error(error_msg, exc_info=True)
+                result['error'] = error_msg
+                result['metrics'].update({
                     'status': 'failed',
                     'end_time': time.time(),
-                    'duration': time.time() - start_time,
-                    'error': str(e)
-                }
+                    'duration': time.time() - overall_start,
+                    'error': error_msg,
+                    'success': False
+                })
+                return result
+                
+        except Exception as e:
+            error_msg = f"Unexpected error in _compute_local_lattice: {str(e)}"
+            self.logger.error(error_msg, exc_info=True)
+            result['error'] = error_msg
+            result['metrics'].update({
+                'status': 'failed',
+                'end_time': time.time(),
+                'duration': time.time() - overall_start,
+                'error': error_msg,
+                'success': False
             })
-            return result
+            
+            # Save error metrics to Redis if configured
+            if hasattr(self, 'redis_client'):
+                try:
+                    self._save_metrics_to_redis(federation_id, result['metrics'])
+                except Exception as redis_err:
+                    self.logger.error(f"Failed to save error metrics to Redis: {str(redis_err)}")
 
+            return result
+    
     def _handle_federation_start(self, message):
-        """Handle federation start message.
+        """
+        Handle federation start message.
         
         Args:
             message: Dictionary containing federation start information
@@ -3112,20 +3375,156 @@ class ALMActor:
             
             self.logger.debug(' '.join(log_msg))
     
-    def _save_metrics_to_redis(self, federation_id, metrics):
+    def _record_timing(self, metric_name, start_time, end_time=None):
         """
-        Save metrics to Redis
+        Record timing metrics consistently
+        
+        Args:
+            metric_name: Name of the metric to record
+            start_time: Start time of the operation
+            end_time: End time of the operation (defaults to now)
+            
+        Returns:
+            float: Duration in seconds
+        """
+        duration = (end_time or time.time()) - start_time
+        if not hasattr(self, 'timing_metrics'):
+            self.timing_metrics = {}
+        self.timing_metrics[metric_name] = self.timing_metrics.get(metric_name, 0) + duration
+        return duration
+
+    def _record_resource_usage(self):
+        """
+        Record current resource usage metrics
+        
+        Returns:
+            dict: Resource usage metrics
         """
         try:
-            if self.redis_client:
-                metrics_key = f"metrics:{federation_id}:{self.actor_id}"
-                self.redis_client.hmset(metrics_key, metrics)
-                self.redis_client.expire(metrics_key, 86400)  # 24h TTL
-                self.logger.info(f"Saved metrics to Redis for federation {federation_id}")
-                return True
-            return False
+            import psutil
+            process = psutil.Process()
+            memory_info = process.memory_info()
+            
+            metrics = {
+                'memory_rss_mb': memory_info.rss / (1024 * 1024),  # Convert to MB
+                'memory_vms_mb': memory_info.vms / (1024 * 1024),   # Convert to MB
+                'cpu_percent': process.cpu_percent(interval=0.1),
+                'thread_count': process.num_threads(),
+                'timestamp': time.time()
+            }
+            
+            if not hasattr(self, 'resource_metrics'):
+                self.resource_metrics = []
+            self.resource_metrics.append(metrics)
+            return metrics
+            
         except Exception as e:
-            self.logger.error(f"Error saving metrics to Redis: {e}")
+            self.logger.warning(f"Could not record resource usage: {e}")
+            return {}
+
+    def _save_metrics_to_redis(self, federation_id, metrics):
+        """
+        Save comprehensive metrics to Redis under a single key with proper structure
+        
+        Args:
+            federation_id: ID of the federation
+            metrics: Dictionary of metrics to save
+            
+        Returns:
+            bool: True if save was successful, False otherwise
+        """
+        if not self.redis_client:
+            self.logger.warning("Redis client not available, skipping metrics save")
+            return False
+            
+        try:
+            # Base key for all metrics
+            base_key = f"fedfca:metrics:{federation_id}"
+            
+            # Create a pipeline for atomic operations
+            pipeline = self.redis_client.pipeline()
+            
+            # Get existing metrics if they exist
+            existing_metrics = self.redis_client.get(base_key)
+            metrics_list = []
+            
+            if existing_metrics:
+                try:
+                    metrics_list = json.loads(existing_metrics)
+                    if not isinstance(metrics_list, list):
+                        metrics_list = [metrics_list]
+                except json.JSONDecodeError as je:
+                    self.logger.error(f"Error parsing existing metrics: {je}")
+                    metrics_list = []
+            
+            # Prepare metrics data with timestamps and metadata
+            metrics_data = {
+                'timestamp': time.time(),
+                'provider_id': self.actor_id,
+                'federation_id': federation_id,
+                'metrics': metrics
+            }
+            
+            # Add timing metrics if available
+            if hasattr(self, 'timing_metrics'):
+                metrics_data['timing'] = self.timing_metrics
+                
+            # Add resource metrics if available
+            if hasattr(self, 'resource_metrics') and self.resource_metrics:
+                try:
+                    # Safely calculate peak memory and average CPU
+                    memory_values = []
+                    cpu_values = []
+                    
+                    for m in self.resource_metrics:
+                        if isinstance(m, dict):
+                            if 'memory_rss_mb' in m and isinstance(m['memory_rss_mb'], (int, float)):
+                                memory_values.append(m['memory_rss_mb'])
+                            if 'cpu_percent' in m and isinstance(m['cpu_percent'], (int, float)):
+                                cpu_values.append(m['cpu_percent'])
+                    
+                    resources = {
+                        'samples': len(self.resource_metrics)
+                    }
+                    
+                    if memory_values:
+                        resources['peak_memory_mb'] = max(memory_values)
+                        resources['min_memory_mb'] = min(memory_values)
+                        resources['avg_memory_mb'] = sum(memory_values) / len(memory_values)
+                    
+                    if cpu_values:
+                        resources['avg_cpu_percent'] = sum(cpu_values) / len(cpu_values)
+                        resources['max_cpu_percent'] = max(cpu_values)
+                        resources['min_cpu_percent'] = min(cpu_values)
+                    
+                    metrics_data['resources'] = resources
+                    
+                except Exception as e:
+                    self.logger.warning(f"Error processing resource metrics: {e}")
+                    metrics_data['resource_metrics_error'] = str(e)
+            
+            # Add the metrics to the data
+            if isinstance(metrics, dict):
+                metrics_data.update(metrics)
+            
+            # Add new metrics to the list
+            metrics_list.append(metrics_data)
+            
+            # Store all metrics under the single key with TTL
+            pipeline.set(
+                base_key,
+                json.dumps(metrics_list, default=str),  # Use default=str to handle non-serializable types
+                ex=86400  # 24h TTL
+            )
+            
+            # Execute all operations atomically
+            pipeline.execute()
+            
+            self.logger.info(f"Saved metrics to Redis at key {base_key}")
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"Error saving metrics to Redis: {e}", exc_info=True)
             return False
     
     # Removed duplicate _delivery_callback method - using the 3-parameter version above instead

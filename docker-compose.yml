@@ -125,6 +125,7 @@ services:
       - dataset-preparator
     volumes:
       - "./config/:/data"
+      - "./metrics/:/metrics"
       - "./src/commun:/app/commun"
       - "./fedfca_core:/app/fedfca_core"
       - ./prepared_federated_datasets:/data/federated_datasets
@@ -132,6 +133,7 @@ services:
       - KAFKA_BROKERS=kafka-1:9092
       - KAFKA_BOOTSTRAP_SERVERS=kafka-1:9092
       - KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://kafka-1:9092
+      
     deploy:
       resources:
         limits:
@@ -159,6 +161,7 @@ services:
       - dataset-preparator
     volumes:
       - "./config/:/data"
+      - "./metrics/:/metrics"
       - "./src/commun:/app/commun"
       - "./fedfca_core:/app/fedfca_core"
       - ./prepared_federated_datasets:/data/federated_datasets
@@ -167,7 +170,7 @@ services:
       - KAFKA_BOOTSTRAP_SERVERS=kafka-1:9092
       - KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://kafka-1:9092
       - ACTOR_ID_SUFFIX=1
-      - PROVIDER_INDEX=0
+      - PROVIDER_INDEX=1
   alm_actor2:
     build:
       context: ./src/provider
@@ -185,6 +188,7 @@ services:
       - dataset-preparator
     volumes:
       - "./config/:/data"
+      - "./metrics/:/metrics"
       - "./src/commun:/app/commun"
       - "./fedfca_core:/app/fedfca_core"
       - ./prepared_federated_datasets:/data/federated_datasets
@@ -193,55 +197,91 @@ services:
       - KAFKA_BOOTSTRAP_SERVERS=kafka-1:9092
       - KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://kafka-1:9092
       - ACTOR_ID_SUFFIX=2
-      - PROVIDER_INDEX=1
+      - PROVIDER_INDEX=2
 
-  # alm_actor2:
-  #   build:
-  #     context: ./src/provider
-  #   hostname: alm_actor2
-  #   container_name: alm_actor2
-  #   restart: always
-  #   networks:
-  #     - fedfca-network
-  #   depends_on:
-  #     - kafka-1
-  #     # - kafka-2
-  #     # - kafka-3
-  #     - agm_actor
-  #     - datastore
-  #     - dataset-preparator
-  #   volumes:
-  #     - "./config/:/data"
-  #     - "./src/commun:/app/commun"
-  #     - "./fedfca_core:/app/fedfca_core"
-  #     - ./prepared_federated_datasets:/data/federated_datasets
-  #   environment:
-  #     - KAFKA_BROKERS=kafka-1:9092
-      # - KAFKA_BOOTSTRAP_SERVERS=kafka-1:9092
-      # - KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://kafka-1:9092,kafka-2:9093,kafka-3:9094
-  #     - ACTOR_ID_SUFFIX=2
-  #     - PROVIDER_INDEX=1
-
-  # alm_actor3:
-  #   build:
-  #     context: ./participant
-  #     #dockerfile: DockerfileALMActor
-  #   hostname: alm_actor3
-  #   container_name: alm_actor3
-  #   restart: always
-  #   networks:
-  #     - fedfca-network # Corrected typo
-  #   depends_on:
-      # - kafka-1
+  alm_actor3:       
+    build:
+      context: ./src/provider
+    hostname: alm_actor3
+    container_name: alm_actor3
+    restart: always
+    networks:
+      - fedfca-network
+    depends_on:
+      - kafka-1
       # - kafka-2
       # - kafka-3
-  #     - agm_actor
-  #     - datastore
-  #     - dataset-preparator
-  #   volumes:
-  #     - "./config/:/data"
-  #     - "./participant/logactor.py:/app/logactor.py"
-  #     - ./prepared_federated_datasets:/provider_data_root
+      - agm_actor
+      - datastore
+      - dataset-preparator
+    volumes:
+      - "./config/:/data"
+      - "./metrics/:/metrics"
+      - "./src/commun:/app/commun"
+      - "./fedfca_core:/app/fedfca_core"
+      - ./prepared_federated_datasets:/data/federated_datasets
+    environment:
+      - KAFKA_BROKERS=kafka-1:9092
+      - KAFKA_BOOTSTRAP_SERVERS=kafka-1:9092
+      - KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://kafka-1:9092
+      - ACTOR_ID_SUFFIX=3
+      - PROVIDER_INDEX=3
+  alm_actor4:
+    build:
+      context: ./src/provider
+      #dockerfile: DockerfileALMActor
+    hostname: alm_actor4
+    container_name: alm_actor4
+    restart: always
+    networks:
+      - fedfca-network
+    depends_on:
+      - kafka-1
+      # - kafka-2
+      # - kafka-3
+      - agm_actor
+      - datastore
+      - dataset-preparator
+    volumes:
+      - "./config/:/data"
+      - "./metrics/:/metrics"
+      - "./src/commun:/app/commun"
+      - "./fedfca_core:/app/fedfca_core"
+      - ./prepared_federated_datasets:/data/federated_datasets
+    environment:
+      - KAFKA_BROKERS=kafka-1:9092
+      - KAFKA_BOOTSTRAP_SERVERS=kafka-1:9092
+      - KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://kafka-1:9092
+      - ACTOR_ID_SUFFIX=4
+      - PROVIDER_INDEX=4
+  alm_actor5:
+    build:
+      context: ./src/provider
+      #dockerfile: DockerfileALMActor
+    hostname: alm_actor5
+    container_name: alm_actor5
+    restart: always
+    networks:
+      - fedfca-network
+    depends_on:
+      - kafka-1
+      # - kafka-2
+      # - kafka-3
+      - agm_actor
+      - datastore
+      - dataset-preparator
+    volumes:
+      - "./config/:/data"
+      - "./metrics/:/metrics"
+      - "./src/commun:/app/commun"
+      - "./fedfca_core:/app/fedfca_core"
+      - ./prepared_federated_datasets:/data/federated_datasets
+    environment:
+      - KAFKA_BROKERS=kafka-1:9092
+      - KAFKA_BOOTSTRAP_SERVERS=kafka-1:9092
+      - KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://kafka-1:9092
+      - ACTOR_ID_SUFFIX=5
+      - PROVIDER_INDEX=5
 
   # ... (alm_actor4, alm_actor5 - uncomment and configure similarly if needed)
 

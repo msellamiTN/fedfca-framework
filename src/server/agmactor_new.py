@@ -453,47 +453,30 @@ class AGMActor:
         if not self.redis_client:
             self.logger.warning("Redis client not available, skipping metrics save")
             return False
-            
+        
         try:
-            # Create a pipeline for atomic operations
             pipeline = self.redis_client.pipeline()
+            timestamp = int(time.time())
             
-            # Store federation-level metrics
+            # Save federation metrics
             fed_key = f"fedfca:metrics:federation:{federation_id}"
+            fed_metrics = metrics.get('federation', {})
+            if fed_metrics:
+                pipeline.hmset(fed_key, {
+                    'metrics': json.dumps(fed_metrics, default=str),
+                    'updated_at': timestamp
+                })
+                pipeline.expire(fed_key, 60 * 60 * 24)  # 24h TTL
             
-            # Convert all values to strings for Redis
-            redis_metrics = {}
-            for k, v in metrics.items():
-                if k != 'provider_metrics':  # Handle provider metrics separately
-                    if isinstance(v, (dict, list)):
-                        redis_metrics[k] = json.dumps(v)
-                    else:
-                        redis_metrics[k] = str(v)
-            
-            # Store federation metrics
-            if redis_metrics:
-                pipeline.hmset(fed_key, redis_metrics)
-                pipeline.expire(fed_key, 86400)  # 24h TTL
-            
-            # Store provider-level metrics if present
-            if 'provider_metrics' in metrics and isinstance(metrics['provider_metrics'], dict):
-                for provider_id, p_metrics in metrics['provider_metrics'].items():
-                    if not isinstance(p_metrics, dict):
-                        continue
-                        
-                    provider_key = f"fedfca:metrics:provider:{provider_id}:{federation_id}"
-                    
-                    # Convert all provider metric values to strings
-                    redis_provider_metrics = {}
-                    for k, v in p_metrics.items():
-                        if isinstance(v, (dict, list)):
-                            redis_provider_metrics[k] = json.dumps(v)
-                        else:
-                            redis_provider_metrics[k] = str(v)
-                    
-                    if redis_provider_metrics:
-                        pipeline.hmset(provider_key, redis_provider_metrics)
-                        pipeline.expire(provider_key, 86400)  # 24h TTL
+            # Save provider metrics
+            provider_metrics = metrics.get('providers', {})
+            for provider_id, p_metrics in provider_metrics.items():
+                provider_key = f"fedfca:metrics:provider:{provider_id}:{federation_id}"
+                pipeline.hmset(provider_key, {
+                    'metrics': json.dumps(p_metrics, default=str),
+                    'updated_at': timestamp
+                })
+                pipeline.expire(provider_key, 60 * 60 * 24)  # 24h TTL
             
             # Execute all operations atomically
             pipeline.execute()
@@ -2602,16 +2585,33 @@ class AGMActor:
 
     def _save_provider_metrics(self, federation_id, provider_id, metrics):
         """
-        Enhanced metrics saving with comprehensive analysis support
-        """
-        # ... existing save logic ...
+        Save provider metrics to Redis and update in-memory metrics
         
-        # Also save to comprehensive metrics for analysis
-        if hasattr(self, 'federation_comprehensive_metrics') and federation_id in self.federation_comprehensive_metrics:
-            if 'agm_provider_metrics' not in self.federation_comprehensive_metrics[federation_id]:
-                self.federation_comprehensive_metrics[federation_id]['agm_provider_metrics'] = {}
+        Args:
+            federation_id: ID of the federation
+            provider_id: ID of the provider
+            metrics: Dictionary of metrics to save
             
-            self.federation_comprehensive_metrics[federation_id]['agm_provider_metrics'][provider_id] = metrics   
+        Returns:
+            bool: True if save was successful, False otherwise
+        """
+        try:
+            # Initialize metrics structures if they don't exist
+            if not hasattr(self, 'federation_comprehensive_metrics'):
+                self.federation_comprehensive_metrics = {}
+            if federation_id not in self.federation_comprehensive_metrics:
+                self.federation_comprehensive_metrics[federation_id] = {'providers': {}}
+            
+            # Update in-memory metrics
+            self.federation_comprehensive_metrics[federation_id]['providers'][provider_id] = metrics
+            
+            # Save to Redis using the standard method
+            return self._save_metrics_to_redis(federation_id, {
+                'providers': {provider_id: metrics}
+            })
+        except Exception as e:
+            self.logger.error(f"Error in _save_provider_metrics: {e}", exc_info=True)
+            return False
     def _publish_federation_complete(self, federation_id, metrics):
         """
         Publish federation completion notification
@@ -2655,17 +2655,35 @@ class AGMActor:
     
     def _save_federation_metrics(self, federation_id, metrics):
         """
-        Save federation metrics to Redis
+        Save federation metrics to Redis and update in-memory metrics
+        
+        Args:
+            federation_id: ID of the federation
+            metrics: Dictionary of metrics to save
+            
+        Returns:
+            bool: True if save was successful, False otherwise
         """
         try:
-            if self.redis_client:
-                metrics_key = f"federation_metrics:{federation_id}"
-                self.redis_client.set(metrics_key, json.dumps(metrics))
-                self.redis_client.expire(metrics_key, 86400)  # 24 hour TTL
-                return True
-            return False
+            # Initialize metrics structures if they don't exist
+            if not hasattr(self, 'federation_comprehensive_metrics'):
+                self.federation_comprehensive_metrics = {}
+            if federation_id not in self.federation_comprehensive_metrics:
+                self.federation_comprehensive_metrics[federation_id] = {}
+            
+            # Update in-memory metrics
+            self.federation_comprehensive_metrics[federation_id].update({
+                'federation': metrics,
+                'last_updated': time.time()
+            })
+            
+            # Save to Redis using the standard method
+            return self._save_metrics_to_redis(federation_id, {
+                'federation': metrics,
+                'providers': self.federation_comprehensive_metrics[federation_id].get('providers', {})
+            })
         except Exception as e:
-            self.logger.error(f"Error saving federation metrics: {e}")
+            self.logger.error(f"Error in _save_federation_metrics: {e}", exc_info=True)
             return False
     
     def start_listening(self):
