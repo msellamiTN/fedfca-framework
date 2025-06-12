@@ -1555,7 +1555,7 @@ class ALMActor:
             # Update comprehensive metrics
             self.federation_metrics[federation_id].update({
                 'status': 'completed',
-                'lattice_size': lattice_size,
+                # 'lattice_size': lattice_size,
                 'computation_time': total_computation_time,
                 'total_time': time.time() - config_start_time,
                 'dataset_size': len(result.get('dataset', [])) if 'dataset' in result else 0
@@ -1613,6 +1613,7 @@ class ALMActor:
                 error_msg = f"Failed to send lattice result: {str(e)}"
                 self.logger.error(error_msg, exc_info=True)
                 self.federation_metrics[federation_id]['status'] = 'error'
+                self.federation_metrics[federation_id]['lattice_size'] = lattice_size
             
             # Save metrics to Redis and file
             try:
@@ -3135,7 +3136,7 @@ class ALMActor:
                     'algorithm_efficiency': lattice_size / total_computation_time if total_computation_time > 0 else 0,
                     'memory_efficiency_ratio': lattice_size / len(context) if len(context) > 0 else 0
                 })
-                
+
                 self.logger.info(f"Computed lattice with {lattice_size} concepts in {total_computation_time:.2f} seconds")
                 self.logger.info(f"Core FCA algorithm time: {core_algorithm_time:.4f}s (centralized comparable)")
                 
