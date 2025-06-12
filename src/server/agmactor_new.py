@@ -2285,7 +2285,8 @@ class AGMActor:
                 fed_metrics['provider_count'] += 1
                 
                 # Log detailed network metrics
-                self.logger.info(
+                
+                logger.info(
                     f"Network Metrics - Provider {provider_id}:\n"
                     f"  Kafka Latency: {network_metrics.get('kafka_latency', 0):.6f}s\n"
                     f"  K8s Overhead: {network_metrics.get('k8s_overhead', 0):.6f}s\n"
@@ -2306,7 +2307,7 @@ class AGMActor:
                 })
                 self._save_provider_metrics(federation_id, provider_id, enhanced_provider_metrics)
                 
-                self.logger.info(f"Successfully processed lattice from provider {provider_id} for federation {federation_id}")
+                logger.info(f"Successfully processed lattice from provider {provider_id} for federation {federation_id}")
                 
                 # Check if all lattices have been received
                 aggregation_check_start = time.time()
@@ -2376,7 +2377,7 @@ class AGMActor:
                 federation_lookup_time = self.agm_metrics.get('timestamps', {}).get('federation_lookup_time', 0.0)
                 provider_validation_time = self.agm_metrics.get('timestamps', {}).get('provider_validation_time', 0.0)
                 
-                self.logger.info(
+                logger.info(
                     f"AGM PROCESSING OVERHEAD - Provider {provider_id}, Federation {federation_id}:\n"
                     f"  Total AGM Processing: {total_agm_processing_time:.4f}s\n"
                     f"  Decryption Overhead: {total_decryption_overhead:.4f}s\n"
@@ -2398,7 +2399,7 @@ class AGMActor:
                 return True
             
         except Exception as e:
-            self.logger.error(f"Unexpected error in _handle_lattice_result: {str(e)}", exc_info=True)
+            logger.error(f"Unexpected error in _handle_lattice_result: {str(e)}", exc_info=True)
             return False
 
     def _perform_comprehensive_analysis(self, federation_id):

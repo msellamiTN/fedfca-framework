@@ -1,0 +1,26 @@
+    def _handle_lattice_result(self, message, message_overhead_metrics=None):
+        """
+        Handle lattice result messages from ALM providers and compute global metrics
+        
+        Args:
+            message: Dictionary containing lattice data and metrics
+            message_overhead_metrics: Additional message processing metrics
+            
+        Returns:
+            bool: True if processing was successful, False otherwise
+        """
+        # Use the new message processing pipeline
+        success, metrics, error = self._process_lattice_message(message, message_overhead_metrics)
+        
+        # Log the result
+        if success:
+            self.logger.info(
+                f"Successfully processed lattice from {message.get('provider_id')} "
+                f"in {metrics.get('processing_time', 0):.2f}s"
+            )
+        else:
+            self.logger.error(
+                f"Failed to process lattice from {message.get('provider_id', 'unknown')}: {error}"
+            )
+            
+        return success
