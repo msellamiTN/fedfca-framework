@@ -103,6 +103,9 @@ class AGMActor:
             'aggregations': {}  # Aggregation metrics
         }
         
+        # Comprehensive metrics for detailed analysis
+        self.federation_comprehensive_metrics = {}  # {fed_id: {'aggregated_metrics': {...}, 'providers': {...}}}
+        
         # Initialize thread pool executor for async message processing
         self.executor = ThreadPoolExecutor(max_workers=max_workers)
         self.running = False
@@ -522,13 +525,14 @@ class AGMActor:
                 'timestamp': timestamp,
                 'metrics': metrics.get('federation', {})
             }
+            
             pipeline.zadd(f"{ts_key}:raw", {json.dumps(ts_data): timestamp})
             pipeline.zremrangebyrank(f"{ts_key}:raw", 0, -1000)  # Keep last 1000 data points
             pipeline.expire(f"{ts_key}:raw", 30 * 24 * 60 * 60)  # 30 days TTL for time series
             
             # Execute all operations atomically
             pipeline.execute()
-            self.logger.debug(f"Successfully saved metrics for federation {federation_id} to Redis")
+            self.logger.debug(f"Successfully saved metrics {ts_data} for federation {federation_id} to Redis")
             return True
             
         except Exception as e:
@@ -727,7 +731,7 @@ class AGMActor:
         
         # Store the aggregated metrics
         self.federation_metrics['aggregations'][federation_id] = agg_metrics
-        
+        logger.info(f"Aggregated metrics for federation {federation_id}: {self.federation_metrics}")
         return agg_metrics
     
     def get_registered_providers(self):
@@ -1376,6 +1380,7 @@ class AGMActor:
                     return False
                     
             self.monitor.stop_timer(f"lattice_processing_{federation_id}_{provider_id}")
+            logger.info(f"Comprehensive Mertics for provider {provider_id}: {self.federation_comprehensive_metrics[federation_id]['providers'][provider_id]}")
             return True
             
         except Exception as e:
@@ -1511,36 +1516,114 @@ class AGMActor:
     
     def _compute_global_lattice(self, federation_id):
         """Compute the global lattice from all provider lattices"""
-        lattices = list(self.pending_lattices[federation_id].values())
-        self.logger.info(f"Starting global lattice computation with {len(lattices)} lattices")
+        start_time = time.time()
+        self.logger.info(f"Starting global lattice computation for federation {federation_id}")
         
-        # Perform the actual aggregation
-        global_lattice = self.aggregator.aggregate(lattices)
+        # Get all provider lattices
+        provider_lattices = self.pending_lattices[federation_id]
+        lattices = list(provider_lattices.values())
         
-        self.logger.info(f"Global lattice computation complete. Size: {len(global_lattice)}")
-        return global_lattice
+        # Log lattice sizes from each provider
+        for provider_id, lattice in provider_lattices.items():
+            self.logger.debug(f"Lattice from {provider_id}: {len(lattice)} nodes")
+        
+        self.logger.info(f"Starting global lattice aggregation with {len(lattices)} lattices")
+        
+        try:
+            # Perform the actual aggregation
+            global_lattice = self.aggregator.aggregate(lattices)
+            
+            # Calculate aggregation metrics
+            agg_duration = time.time() - start_time
+            self.logger.info(
+                f"Global lattice computation completed in {agg_duration:.2f}s. "
+                f"Size: {len(global_lattice)} nodes"
+            )
+            
+            # Store aggregation metrics
+            if federation_id in self.federation_comprehensive_metrics:
+                self.federation_comprehensive_metrics[federation_id]['aggregation_metrics'] = {
+                    'start_time': start_time,
+                    'duration': agg_duration,
+                    'input_lattice_count': len(lattices),
+                    'output_lattice_size': len(global_lattice),
+                    'avg_input_size': sum(len(l) for l in lattices) / len(lattices) if lattices else 0,
+                    'max_input_size': max(len(l) for l in lattices) if lattices else 0,
+                    'min_input_size': min(len(l) for l in lattices) if lattices else 0,
+                }
+            
+            return global_lattice
+            
+        except Exception as e:
+            self.logger.error(f"Error during lattice aggregation: {str(e)}", exc_info=True)
+            raise
     
     def _compute_final_metrics(self, federation_id):
-        """Compute final aggregated metrics"""
-        fed_metrics = self.federation_comprehensive_metrics[federation_id]['aggregated_metrics']
+        """Compute final aggregated metrics for the federation"""
+        if federation_id not in self.federation_comprehensive_metrics:
+            self.logger.warning(f"No metrics found for federation {federation_id}")
+            return {}
+            
+        fed_metrics = self.federation_comprehensive_metrics[federation_id]
+        agg_metrics = fed_metrics.setdefault('aggregated_metrics', {})
         
-        # Calculate averages
-        provider_count = max(1, fed_metrics['provider_count'])
-        fed_metrics.update({
-            'avg_core_time': fed_metrics['total_core_time'] / provider_count,
-            'avg_processing_time': fed_metrics['total_processing_time'] / provider_count,
-            'avg_decryption_time': fed_metrics['total_decryption_time'] / provider_count,
-            'end_time': time.time(),
-            'total_duration': time.time() - fed_metrics['start_time']
-        })
+        # Get provider metrics for aggregation
+        provider_metrics = fed_metrics.get('providers', {})
+        provider_count = len(provider_metrics)
+        
+        if not provider_count:
+            self.logger.warning(f"No provider metrics found for federation {federation_id}")
+            return {}
+        
+        # Calculate timing statistics
+        timing_metrics = ['core_time', 'processing_time', 'decryption_time', 'encryption_time', 
+                         'serialization_time', 'network_time', 'kafka_latency', 'k8s_overhead']
+        
+        for metric in timing_metrics:
+            values = [p.get(metric, 0) for p in provider_metrics.values() if metric in p]
+            if values:
+                agg_metrics[f'avg_{metric}'] = sum(values) / len(values)
+                agg_metrics[f'max_{metric}'] = max(values)
+                agg_metrics[f'min_{metric}'] = min(values)
+        
+        # Calculate resource usage statistics
+        resource_metrics = ['peak_memory_mb', 'cpu_percent', 'bandwidth_mbps', 'message_count', 'bytes_transmitted']
+        for metric in resource_metrics:
+            values = [p.get(metric, 0) for p in provider_metrics.values() if metric in p]
+            if values:
+                agg_metrics[f'avg_{metric}'] = sum(values) / len(values)
+                agg_metrics[f'total_{metric}'] = sum(values)
+                agg_metrics[f'max_{metric}'] = max(values)
         
         # Add lattice size statistics
-        if fed_metrics['lattice_sizes']:
-            fed_metrics.update({
-                'avg_lattice_size': sum(fed_metrics['lattice_sizes']) / len(fed_metrics['lattice_sizes']),
-                'max_lattice_size': max(fed_metrics['lattice_sizes']),
-                'min_lattice_size': min(fed_metrics['lattice_sizes'])
+        lattice_sizes = [p.get('lattice_size', 0) for p in provider_metrics.values() if 'lattice_size' in p]
+        if lattice_sizes:
+            agg_metrics.update({
+                'avg_lattice_size': sum(lattice_sizes) / len(lattice_sizes),
+                'max_lattice_size': max(lattice_sizes),
+                'min_lattice_size': min(lattice_sizes),
+                'total_lattice_size': sum(lattice_sizes)
             })
+        
+        # Add aggregation metrics if available
+        if 'aggregation_metrics' in fed_metrics:
+            agg_metrics.update({
+                'aggregation_duration': fed_metrics['aggregation_metrics'].get('duration', 0),
+                'input_lattice_count': fed_metrics['aggregation_metrics'].get('input_lattice_count', 0),
+                'output_lattice_size': fed_metrics['aggregation_metrics'].get('output_lattice_size', 0)
+            })
+        
+        # Add timing information
+        current_time = time.time()
+        agg_metrics.update({
+            'provider_count': provider_count,
+            'start_time': agg_metrics.get('start_time', current_time),
+            'end_time': current_time,
+            'total_duration': current_time - agg_metrics.get('start_time', current_time)
+        })
+        
+        self.logger.info(f"Computed final metrics for federation {federation_id}")
+        return agg_metrics
     
     def _store_federation_results(self, federation_id, global_lattice):
         """Store the final results of federation"""
@@ -2024,11 +2107,29 @@ class AGMActor:
             self.pending_lattices.setdefault(federation_id, {})[provider_id] = formatted_message
             self.processed_lattices.add(lattice_key)
             
-            # Save provider metrics
+            # Calculate network time metrics
+            current_time = time.time()
+            message_timestamp = message.get('timestamp', current_time)
+            kafka_latency = current_time - message_timestamp
+            
+            # Get any additional network metrics from the message
+            network_metrics = {
+                'kafka_latency': kafka_latency,
+                'k8s_overhead': message.get('k8s_overhead', 0),
+                'network_time': message.get('network_time', 0),
+                'message_receive_time': current_time,
+                'message_send_time': message_timestamp
+            }
+            
+            # Save provider metrics with network timing information
             if provider_metrics:
-                self._save_provider_metrics(federation_id, provider_id, {
-                    **provider_metrics
+                # Update provider metrics with network timing
+                provider_metrics.update({
+                    'network_metrics': network_metrics,
+                    'total_network_time': kafka_latency + network_metrics['k8s_overhead'] + network_metrics['network_time']
                 })
+                
+                self._save_provider_metrics(federation_id, provider_id, provider_metrics)
                 
             # Get reference to federation metrics for easier access
             if federation_id in self.federation_comprehensive_metrics:
@@ -2161,9 +2262,36 @@ class AGMActor:
                     except Exception as e:
                         self.logger.warning("Error processing resource utilization metrics: %s", str(e), exc_info=True)
                 
+                # Add network metrics to communication overhead
+                network_overhead = (
+                    network_metrics.get('kafka_latency', 0) + 
+                    network_metrics.get('k8s_overhead', 0) +
+                    network_metrics.get('network_time', 0)
+                )
+                
+                # Update AGM metrics with network timing
+                agm_metrics['communication_overhead'].update({
+                    'kafka_latency': network_metrics.get('kafka_latency', 0),
+                    'k8s_overhead': network_metrics.get('k8s_overhead', 0),
+                    'network_time': network_metrics.get('network_time', 0),
+                    'total_network_overhead': network_overhead
+                })
+                
+                # Include network overhead in total communication overhead
+                total_communication_overhead = total_decryption_overhead + network_overhead
+                
                 # Add AGM-side communication overhead to aggregated metrics
-                fed_metrics['total_communication_overhead'] += total_decryption_overhead
+                fed_metrics['total_communication_overhead'] += total_communication_overhead
                 fed_metrics['provider_count'] += 1
+                
+                # Log detailed network metrics
+                self.logger.info(
+                    f"Network Metrics - Provider {provider_id}:\n"
+                    f"  Kafka Latency: {network_metrics.get('kafka_latency', 0):.6f}s\n"
+                    f"  K8s Overhead: {network_metrics.get('k8s_overhead', 0):.6f}s\n"
+                    f"  Network Time: {network_metrics.get('network_time', 0):.6f}s\n"
+                    f"  Total Network Overhead: {network_overhead:.6f}s"
+                )
                 
                 metrics_aggregation_time = time.time() - metrics_aggregation_start
                 agm_metrics['aggregation_overhead']['metrics_aggregation_time'] = metrics_aggregation_time
@@ -2960,17 +3088,38 @@ class AGMActor:
     
     def _save_provider_metrics(self, federation_id, provider_id, metrics):
         """
-        Save provider metrics to Redis
+        Save provider metrics to Redis under a single key per federation.
+        
+        Args:
+            federation_id: ID of the federation
+            provider_id: ID of the provider
+            metrics: Dictionary of metrics to save
+            
+        Returns:
+            bool: True if save was successful, False otherwise
         """
         try:
-            if self.redis_client:
-                metrics_key = f"provider_metrics:{federation_id}:{provider_id}"
-                self.redis_client.set(metrics_key, json.dumps(metrics))
-                self.redis_client.expire(metrics_key, 86400)  # 24 hour TTL
-                return True
-            return False
+            if not self.redis_client:
+                self.logger.warning("Redis client not available, cannot save provider metrics")
+                return False
+                
+            # Single key for all providers in the federation
+            metrics_key = f"provider_metrics:{federation_id}"
+            
+            # Add provider ID and timestamp to metrics
+            metrics_with_ts = metrics.copy()
+            metrics_with_ts['provider_id'] = provider_id
+            metrics_with_ts['timestamp'] = time.time()
+            
+            # Use Redis list to store all metrics under one key
+            self.redis_client.rpush(metrics_key, json.dumps(metrics_with_ts))
+            self.redis_client.expire(metrics_key, 86400)  # 24 hour TTL
+            
+            self.logger.debug(f"Saved metrics for provider {provider_id} in federation {federation_id}")
+            return True
+            
         except Exception as e:
-            self.logger.error(f"Error saving provider metrics: {e}")
+            self.logger.error(f"Error saving provider metrics for {provider_id}: {e}", exc_info=True)
             return False
     
     def _save_federation_metrics(self, federation_id, metrics):
