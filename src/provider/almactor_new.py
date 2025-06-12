@@ -1193,6 +1193,24 @@ class ALMActor:
     #     except Exception as e:
     #         self.logger.error(f"Unexpected error in _handle_provider_config: {str(e)}", exc_info=True)
     #         return False
+    def _is_duplicate_processing(self, federation_id, dataset_path):
+        """Check if this dataset-federation pair is already being processed"""
+        task_key = (federation_id, dataset_path)
+        if task_key in self.processed_datasets:
+            self.logger.warning(f"Skipping duplicate processing for federation {federation_id} and dataset {dataset_path}")
+            return True
+        return False
+        
+    def _mark_processing_started(self, federation_id, dataset_path):
+        """Mark that processing has started for this dataset-federation pair"""
+        task_key = (federation_id, dataset_path)
+        self.processed_datasets.add(task_key)
+        
+    def _mark_processing_complete(self, federation_id, dataset_path):
+        """Mark that processing has completed for this dataset-federation pair"""
+        task_key = (federation_id, dataset_path)
+        self.processed_datasets.discard(task_key)  # Remove from active processing
+        
     def _handle_provider_config(self, message):
         """
         Handle configuration message from AGM with comprehensive metrics collection
@@ -1294,6 +1312,7 @@ class ALMActor:
             # Initialize comprehensive metrics for this federation
             self.federation_metrics[federation_id] = {
                 'lattice_size': 0,
+                'provider_id': self.provider_id,
                 'computation_time': 0,
                 'status': 'initialized',
                 'encryption_time': 0,
@@ -1421,137 +1440,19 @@ class ALMActor:
                 return False
             
             # Dataset loading and lattice computation
-            if dataset_config.get('path') and dataset_config.get('threshold') is not None:
+            dataset_path = dataset_config.get('path')
+            if dataset_path and dataset_config.get('threshold') is not None:
+                # Check for duplicate processing
+                if self._is_duplicate_processing(federation_id, dataset_path):
+                    self.logger.info(f"Skipping duplicate processing for federation {federation_id} and dataset {dataset_path}")
+                    return True  # Still return True as this isn't an error case
+                    
                 self.logger.info(f"Starting lattice computation for federation {federation_id}")
-                
+                self._mark_processing_started(federation_id, dataset_path)
+            
                 # Update status
                 self.active_federations[federation_id]['status'] = 'processing'
                 self.federation_metrics[federation_id]['status'] = 'processing'
-                
-                def enhanced_lattice_callback(future):
-                    try:
-                        callback_start = time.time()
-                        result = future.result()
-                        
-                        if not result or ('encrypted_lattice' not in result and 'decrypted_lattice' not in result):
-                            error_msg = "Lattice computation failed: No valid result returned"
-                            self.logger.error(error_msg)
-                            self._send_config_ack(federation_id, provider_id, success=False, message=error_msg)
-                            return
-                        
-                        # Handle encryption with timing
-                        encryption_start = time.time()
-                        if 'encrypted_lattice' not in result and 'decrypted_lattice' in result:
-                            if hasattr(self, 'crypto_manager') and self.crypto_manager:
-                                try:
-                                    serialized_lattice = json.dumps({"encrypted_lattice": result['decrypted_lattice']}).encode('utf-8')
-                                    encrypted_lattice = self.crypto_manager.encrypt(self.encryption_key, serialized_lattice)
-                                    if encrypted_lattice:
-                                        result['encrypted_lattice'] = encrypted_lattice
-                                    else:
-                                        result['encrypted_lattice'] = result['decrypted_lattice']
-                                except Exception as e:
-                                    self.logger.error(f"Encryption failed: {str(e)}")
-                                    result['encrypted_lattice'] = result['decrypted_lattice']
-                            else:
-                                result['encrypted_lattice'] = result['decrypted_lattice']
-                        
-                        self.federation_metrics[federation_id]['encryption_time'] += time.time() - encryption_start
-                        
-                        # Update metrics with final calculations
-                        encrypted_lattice = result.get('encrypted_lattice', [])
-                        lattice_size = len(encrypted_lattice) if encrypted_lattice is not None else 0
-                        total_computation_time = time.time() - self.active_federations[federation_id]['start_time']
-                        
-                        # Capture final system metrics
-                        try:
-                            import psutil
-                            process = psutil.Process()
-                            current_memory = process.memory_info().rss / 1024 / 1024
-                            self.federation_metrics[federation_id]['peak_memory_mb'] = max(
-                                self.federation_metrics[federation_id]['peak_memory_mb'],
-                                current_memory
-                            )
-                            self.federation_metrics[federation_id]['cpu_percent'] = process.cpu_percent()
-                        except ImportError:
-                            pass
-                        
-                        # Update comprehensive metrics
-                        self.federation_metrics[federation_id].update({
-                            'status': 'completed',
-                            'lattice_size': lattice_size,
-                            'computation_time': total_computation_time,
-                            'total_time': time.time() - config_start_time,
-                            'dataset_size': len(result.get('dataset', [])) if 'dataset' in result else 0
-                        })
-                        
-                        # Update federation status
-                        if federation_id in self.active_federations:
-                            self.active_federations[federation_id]['status'] = 'ready'
-                        
-                        # Prepare comprehensive message with all metrics
-                        message_prep_start = time.time()
-                        comprehensive_message = {
-                            "federation_id": federation_id,
-                            "encryption_key": self.encryption_key,
-                            "dataset_id": self.dataset_config.get('dataset_id'),    
-                            "action": "lattice_result",
-                            "provider_id": self.provider_id,
-                            "encrypted_lattice": encrypted_lattice,
-                            "metrics": self.federation_metrics[federation_id],
-                            "timestamp": time.time(),
-                            "action": "lattice_result",
-                            "message_id": f"lattice_{federation_id}_{self.provider_id}_{int(time.time())}",
-                        }
-                        
-                        # Measure message serialization
-                        serialization_start = time.time()
-                        message_json = json.dumps(comprehensive_message)
-                        message_bytes = message_json.encode('utf-8')
-                        serialization_time = time.time() - serialization_start
-                        
-                        # Update final metrics
-                        self.federation_metrics[federation_id]['serialization_time'] += serialization_time
-                        self.federation_metrics[federation_id]['bytes_transmitted'] += len(message_bytes)
-                        self.federation_metrics[federation_id]['message_count'] += 1
-                        
-                        # Send to Kafka with timing
-                        kafka_start = time.time()
-                        try:
-                            self.producer.produce(
-                                topic='participant_lattice_topic',
-                                key=self.actor_id.encode('utf-8'),
-                                value=message_bytes,
-                                callback=lambda err, msg: self._enhanced_delivery_callback(err, msg, federation_id)
-                            )
-                            self.producer.flush()
-                            kafka_time = time.time() - kafka_start
-                            self.federation_metrics[federation_id]['kafka_latency'] += kafka_time * 1000  # Convert to ms
-                            
-                            self.logger.info(f"Successfully sent comprehensive lattice result for federation {federation_id}")
-                            self.logger.info(f"Performance Summary - Computation: {total_computation_time:.2f}s, "
-                                        f"Communication: {kafka_time:.3f}s, "
-                                        f"Lattice Size: {lattice_size} concepts")
-                            
-                        except Exception as e:
-                            error_msg = f"Failed to send lattice result: {str(e)}"
-                            self.logger.error(error_msg, exc_info=True)
-                            self.federation_metrics[federation_id]['status'] = 'error'
-                        
-                        # Save metrics to Redis and file
-                        try:
-                            self._save_metrics_to_redis(federation_id, self.federation_metrics[federation_id])
-                            self._save_metrics_to_file(federation_id, comprehensive_message)
-                            self._send_config_ack(federation_id, provider_id, success=True, 
-                                                message=f"Lattice computation completed with {lattice_size} concepts")
-                        except Exception as e:
-                            self.logger.error(f"Error in metrics saving: {str(e)}", exc_info=True)
-                            
-                    except Exception as e:
-                        error_msg = f"Error in enhanced lattice callback: {str(e)}"
-                        self.logger.error(error_msg, exc_info=True)
-                        self.federation_metrics[federation_id]['status'] = 'error'
-                        self._send_config_ack(federation_id, provider_id, success=False, message=error_msg)
                 
                 # Submit computation with enhanced callback
                 future = self.executor.submit(
@@ -1560,7 +1461,7 @@ class ALMActor:
                     threshold=float(dataset_config.get('threshold', 0.5)),
                     context_sensitivity=float(dataset_config.get('context_sensitivity', 0.2))
                 )
-                future.add_done_callback(enhanced_lattice_callback)
+                future.add_done_callback(lambda f: self._enhanced_lattice_callback(f, federation_id, provider_id, dataset_config, config_start_time))
                 
                 # Send initial acknowledgment
                 self._send_config_ack(federation_id, provider_id, success=True)
@@ -1574,6 +1475,148 @@ class ALMActor:
             self.logger.error(error_msg, exc_info=True)
             return False
 
+    def _enhanced_lattice_callback(self, future, federation_id, provider_id, dataset_config, config_start_time):
+        """Enhanced callback for handling lattice computation results with comprehensive metrics.
+        
+        Args:
+            future: Future object containing the computation result
+            federation_id: ID of the federation
+            provider_id: ID of the provider
+            dataset_config: Configuration for the dataset being processed
+            config_start_time: Timestamp when the configuration processing started
+        """
+        try:
+            callback_start = time.time()
+            result = future.result()
+            
+            # Ensure we clean up processing state even if there's an error
+            try:
+                dataset_path = dataset_config.get('path')
+                if dataset_path:
+                    self._mark_processing_complete(federation_id, dataset_path)
+            except Exception as cleanup_err:
+                self.logger.error(f"Error during cleanup in callback: {str(cleanup_err)}", exc_info=True)
+            
+            if not result or ('encrypted_lattice' not in result and 'decrypted_lattice' not in result):
+                error_msg = "Lattice computation failed: No valid result returned"
+                self.logger.error(error_msg)
+                self._send_config_ack(federation_id, provider_id, success=False, message=error_msg)
+                return
+            
+            # Handle encryption with timing
+            encryption_start = time.time()
+            if 'encrypted_lattice' not in result and 'decrypted_lattice' in result:
+                if hasattr(self, 'crypto_manager') and self.crypto_manager:
+                    try:
+                        serialized_lattice = json.dumps({"encrypted_lattice": result['decrypted_lattice']}).encode('utf-8')
+                        encrypted_lattice = self.crypto_manager.encrypt(self.encryption_key, serialized_lattice)
+                        if encrypted_lattice:
+                            result['encrypted_lattice'] = encrypted_lattice
+                        else:
+                            result['encrypted_lattice'] = result['decrypted_lattice']
+                    except Exception as e:
+                        self.logger.error(f"Encryption failed: {str(e)}")
+                        result['encrypted_lattice'] = result['decrypted_lattice']
+                else:
+                    result['encrypted_lattice'] = result['decrypted_lattice']
+            
+            self.federation_metrics[federation_id]['encryption_time'] += time.time() - encryption_start
+            
+            # Update metrics with final calculations
+            encrypted_lattice = result.get('encrypted_lattice', [])
+            lattice_size = len(encrypted_lattice) if encrypted_lattice is not None else 0
+            total_computation_time = time.time() - self.active_federations[federation_id]['start_time']
+            
+            # Capture final system metrics
+            try:
+                import psutil
+                process = psutil.Process()
+                current_memory = process.memory_info().rss / 1024 / 1024
+                self.federation_metrics[federation_id]['peak_memory_mb'] = max(
+                    self.federation_metrics[federation_id]['peak_memory_mb'],
+                    current_memory
+                )
+                self.federation_metrics[federation_id]['cpu_percent'] = process.cpu_percent()
+            except ImportError:
+                pass
+            
+            # Update comprehensive metrics
+            self.federation_metrics[federation_id].update({
+                'status': 'completed',
+                'lattice_size': lattice_size,
+                'computation_time': total_computation_time,
+                'total_time': time.time() - config_start_time,
+                'dataset_size': len(result.get('dataset', [])) if 'dataset' in result else 0
+            })
+            
+            # Update federation status
+            if federation_id in self.active_federations:
+                self.active_federations[federation_id]['status'] = 'ready'
+            
+            # Prepare comprehensive message with all metrics
+            message_prep_start = time.time()
+            comprehensive_message = {
+                "federation_id": federation_id,
+                "encryption_key": self.encryption_key,
+                "dataset_id": self.dataset_config.get('dataset_id'),    
+                "action": "lattice_result",
+                "provider_id": self.provider_id,
+                "encrypted_lattice": encrypted_lattice,
+                "metrics": self.federation_metrics[federation_id],
+                "timestamp": time.time(),
+                "message_id": f"lattice_{federation_id}_{self.provider_id}_{int(time.time())}",
+            }
+            
+            # Measure message serialization
+            serialization_start = time.time()
+            message_json = json.dumps(comprehensive_message)
+            message_bytes = message_json.encode('utf-8')
+            serialization_time = time.time() - serialization_start
+            
+            # Update final metrics
+            self.federation_metrics[federation_id]['serialization_time'] += serialization_time
+            self.federation_metrics[federation_id]['bytes_transmitted'] += len(message_bytes)
+            self.federation_metrics[federation_id]['message_count'] += 1
+            
+            # Send to Kafka with timing
+            kafka_start = time.time()
+            try:
+                # Use federation_id as the key to ensure all messages for a federation go to the same partition
+                self.producer.produce(
+                    topic='participant_lattice_topic',
+                    key=federation_id.encode('utf-8'),  # Use federation_id as key for consistent partitioning
+                    value=message_bytes,
+                    callback=lambda err, msg: self._enhanced_delivery_callback(err, msg, federation_id)
+                )
+                self.producer.flush()
+                kafka_time = time.time() - kafka_start
+                self.federation_metrics[federation_id]['kafka_latency'] += kafka_time * 1000  # Convert to ms
+                
+                self.logger.info(f"Successfully sent comprehensive lattice result for federation {federation_id}")
+                self.logger.info(f"Performance Summary - Computation: {total_computation_time:.2f}s, "
+                            f"Communication: {kafka_time:.3f}s, "
+                            f"Lattice Size: {lattice_size} concepts")
+                
+            except Exception as e:
+                error_msg = f"Failed to send lattice result: {str(e)}"
+                self.logger.error(error_msg, exc_info=True)
+                self.federation_metrics[federation_id]['status'] = 'error'
+            
+            # Save metrics to Redis and file
+            try:
+                self._save_metrics_to_redis(federation_id, self.federation_metrics[federation_id])
+                self._save_metrics_to_file(federation_id, comprehensive_message)
+                self._send_config_ack(federation_id, provider_id, success=True, 
+                                    message=f"Lattice computation completed with {lattice_size} concepts")
+            except Exception as e:
+                self.logger.error(f"Error in metrics saving: {str(e)}", exc_info=True)
+                
+        except Exception as e:
+            error_msg = f"Error in enhanced lattice callback: {str(e)}"
+            self.logger.error(error_msg, exc_info=True)
+            self.federation_metrics[federation_id]['status'] = 'error'
+            self._send_config_ack(federation_id, provider_id, success=False, message=error_msg)
+    
     def _enhanced_delivery_callback(self, err, msg, federation_id):
         """Enhanced delivery callback with network timing metrics"""
         if err is not None:
