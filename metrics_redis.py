@@ -1,11 +1,11 @@
 import redis
 import json
-
+import logging
 # Connect to Redis
 r = redis.Redis(host='localhost', port=6379, db=0, decode_responses=True)
 
 # Pattern for all FedFCA metrics hashes
-pattern = "fedfca:metrics:provider:*"
+pattern = "fedfca:metrics:*"
 
 # Container for collected data
 results = []
@@ -23,7 +23,7 @@ for key in r.scan_iter(match=pattern):
             except json.JSONDecodeError:
                 # Store raw value if not JSON
                 parsed_entry[field] = value
-
+                logging.info(f"Value for field {field} is not JSON: {value}")
         results.append(parsed_entry)
 
     except Exception as e:

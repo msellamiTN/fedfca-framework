@@ -1533,10 +1533,10 @@ class ALMActor:
                     result['encrypted_lattice'] = result['decrypted_lattice']
             
             self.federation_metrics[federation_id]['encryption_time'] += time.time() - encryption_start
-            
+           
             # Update metrics with final calculations
             encrypted_lattice = result.get('encrypted_lattice', [])
-            lattice_size = len(encrypted_lattice) if encrypted_lattice is not None else 0
+            lattice_size =   self.federation_metrics[federation_id]['lattice_size'] if encrypted_lattice is not None else 0
             total_computation_time = time.time() - self.active_federations[federation_id]['start_time']
             
             # Capture final system metrics
@@ -1555,7 +1555,7 @@ class ALMActor:
             # Update comprehensive metrics
             self.federation_metrics[federation_id].update({
                 'status': 'completed',
-                # 'lattice_size': lattice_size,
+                'lattice_size': lattice_size,
                 'computation_time': total_computation_time,
                 'total_time': time.time() - config_start_time,
                 'dataset_size': len(result.get('dataset', [])) if 'dataset' in result else 0

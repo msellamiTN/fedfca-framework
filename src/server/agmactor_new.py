@@ -839,7 +839,7 @@ class AGMActor:
         try:
             # Determine dataset path based on provider index
             provider_index = int(provider_id.split('_')[-1]) if '_' in provider_id else 1
-            dataset_path = f"/data/federated_datasets/mushroom_example/providers_5/iid/provider_{provider_index}.txt"
+            dataset_path = f"/data/federated_datasets/chess/providers_50/iid/provider_{provider_index}.txt"
             
             # Create configuration message
             config = {
@@ -847,14 +847,14 @@ class AGMActor:
                 'federation_id': federation_id,
                 'provider_id': provider_id,
                 'encryption_key': encryption_key,
-                'dataset_name': self.config.get("provider", {}).get("name", "mushroom_example"),
+                'dataset_name': self.config.get("provider", {}).get("name", "chess"),
                 'strategy': self.config.get("provider", {}).get("strategy", "IID"),
                  'context_sensitivity': self.config.get("provider", {}).get("context_sensitivity", 0.2),
                 'dataset_config': {
                     'path':  self.config.get("provider", {}).get("url",dataset_path),
                     'threshold': self.config.get("provider", {}).get("threshold", 0.5),
                     'context_sensitivity': self.config.get("provider", {}).get("context_sensitivity", 0.2),
-                    'dataset_name': self.config.get("provider", {}).get("name", "mushroom_example"
+                    'dataset_name': self.config.get("provider", {}).get("name", "chess"
                     )
                 },
                 'timestamp': time.time(),

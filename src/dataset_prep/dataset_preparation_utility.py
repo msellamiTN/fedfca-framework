@@ -355,34 +355,34 @@ if __name__ == '__main__':
     
     dummy_dataset_config = {
         "datasets": [
+            # {
+            #     "name": "mushroom_example",
+            #     "url": "http://fimi.uantwerpen.be/data/mushroom.dat", # Standard FIMI dataset
+            #     "format": "fimi",
+            #     "splitting_setups": [
+            #         {
+            #             "num_providers": 5,
+            #             "strategy": "IID"
+            #         },
+            #         {
+            #             "num_providers": 5,
+            #             "strategy": "Non-IID",
+            #             "non_iid_type": "quantity", # "quantity" or "attribute"
+            #             "non_iid_skew_factor": 0.3 # Smaller means more skew
+            #         }
+            #     ]
+            # },
             {
-                "name": "mushroom_example",
-                "url": "http://fimi.uantwerpen.be/data/mushroom.dat", # Standard FIMI dataset
+                "name": "chess_example",
+                "url": "http://fimi.uantwerpen.be/data/chess.dat",
                 "format": "fimi",
                 "splitting_setups": [
                     {
                         "num_providers": 5,
                         "strategy": "IID"
-                    },
-                    {
-                        "num_providers": 5,
-                        "strategy": "Non-IID",
-                        "non_iid_type": "quantity", # "quantity" or "attribute"
-                        "non_iid_skew_factor": 0.3 # Smaller means more skew
                     }
                 ]
-            },
-            # {
-            #     "name": "chess_example",
-            #     "url": "http://fimi.uantwerpen.be/data/chess.dat",
-            #     "format": "fimi",
-            #     "splitting_setups": [
-            #         {
-            #             "num_providers": 10,
-            #             "strategy": "IID"
-            #         }
-            #     ]
-            # }
+            }
         ]
     }
     with open("config/config.yml", "w") as f:

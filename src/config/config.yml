@@ -1,6 +1,6 @@
 datasets:
-- name: mushroom
-  url: http://fimi.uantwerpen.be/data/mushroom.dat
+- name: chess_example
+  url:  http://fimi.uantwerpen.be/data/chess.dat
   format: fimi
   splitting_setups:
   - num_providers: 5
@@ -9,3 +9,4 @@ datasets:
     strategy: Non-IID
     non_iid_type: quantity
     non_iid_skew_factor: 0.3
+    
