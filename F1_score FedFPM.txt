@@ -1,0 +1,932 @@
+[
+    {
+        "dataset_name": "mushroom",
+        "epsilon": 1,
+        "min_sup": 0.1,
+        "f1_score": 0.8514851485148515
+    },
+    {
+        "dataset_name": "mushroom",
+        "epsilon": 1,
+        "min_sup": 0.3,
+        "f1_score": 0.7931034482758621
+    },
+    {
+        "dataset_name": "mushroom",
+        "epsilon": 1,
+        "min_sup": 0.5,
+        "f1_score": 0.6
+    },
+    {
+        "dataset_name": "mushroom",
+        "epsilon": 1,
+        "min_sup": 0.7,
+        "f1_score": 0.7142857142857143
+    },
+    {
+        "dataset_name": "mushroom",
+        "epsilon": 1,
+        "min_sup": 0.9,
+        "f1_score": 0.5714285714285715
+    },
+    {
+        "dataset_name": "mushroom",
+        "epsilon": 3,
+        "min_sup": 0.1,
+        "f1_score": 0.9642857142857143
+    },
+    {
+        "dataset_name": "mushroom",
+        "epsilon": 3,
+        "min_sup": 0.3,
+        "f1_score": 0.8750000000000001
+    },
+    {
+        "dataset_name": "mushroom",
+        "epsilon": 3,
+        "min_sup": 0.5,
+        "f1_score": 0.888888888888889
+    },
+    {
+        "dataset_name": "mushroom",
+        "epsilon": 3,
+        "min_sup": 0.7,
+        "f1_score": 0.8
+    },
+    {
+        "dataset_name": "mushroom",
+        "epsilon": 3,
+        "min_sup": 0.9,
+        "f1_score": 0.888888888888889
+    },
+    {
+        "dataset_name": "mushroom",
+        "epsilon": 5,
+        "min_sup": 0.1,
+        "f1_score": 0.9824561403508771
+    },
+    {
+        "dataset_name": "mushroom",
+        "epsilon": 5,
+        "min_sup": 0.3,
+        "f1_score": 0.9090909090909091
+    },
+    {
+        "dataset_name": "mushroom",
+        "epsilon": 5,
+        "min_sup": 0.5,
+        "f1_score": 0.8333333333333333
+    },
+    {
+        "dataset_name": "mushroom",
+        "epsilon": 5,
+        "min_sup": 0.7,
+        "f1_score": 0.7499999999999999
+    },
+    {
+        "dataset_name": "mushroom",
+        "epsilon": 5,
+        "min_sup": 0.9,
+        "f1_score": 0.888888888888889
+    },
+    {
+        "dataset_name": "mushroom",
+        "epsilon": 7,
+        "min_sup": 0.1,
+        "f1_score": 0.9824561403508771
+    },
+    {
+        "dataset_name": "mushroom",
+        "epsilon": 7,
+        "min_sup": 0.3,
+        "f1_score": 0.923076923076923
+    },
+    {
+        "dataset_name": "mushroom",
+        "epsilon": 7,
+        "min_sup": 0.5,
+        "f1_score": 0.8648648648648648
+    },
+    {
+        "dataset_name": "mushroom",
+        "epsilon": 7,
+        "min_sup": 0.7,
+        "f1_score": 0.8
+    },
+    {
+        "dataset_name": "mushroom",
+        "epsilon": 7,
+        "min_sup": 0.9,
+        "f1_score": 0.888888888888889
+    },
+    {
+        "dataset_name": "mushroom",
+        "epsilon": 9,
+        "min_sup": 0.1,
+        "f1_score": 0.9824561403508771
+    },
+    {
+        "dataset_name": "mushroom",
+        "epsilon": 9,
+        "min_sup": 0.3,
+        "f1_score": 0.9393939393939393
+    },
+    {
+        "dataset_name": "mushroom",
+        "epsilon": 9,
+        "min_sup": 0.5,
+        "f1_score": 0.8333333333333333
+    },
+    {
+        "dataset_name": "mushroom",
+        "epsilon": 9,
+        "min_sup": 0.7,
+        "f1_score": 0.7499999999999999
+    },
+    {
+        "dataset_name": "mushroom",
+        "epsilon": 9,
+        "min_sup": 0.9,
+        "f1_score": 0.888888888888889
+    },
+    {
+        "dataset_name": "chess",
+        "epsilon": 1,
+        "min_sup": 0.4,
+        "f1_score": 0.717948717948718
+    },
+    {
+        "dataset_name": "chess",
+        "epsilon": 1,
+        "min_sup": 0.5,
+        "f1_score": 0.5517241379310345
+    },
+    {
+        "dataset_name": "chess",
+        "epsilon": 1,
+        "min_sup": 0.6,
+        "f1_score": 0.5
+    },
+    {
+        "dataset_name": "chess",
+        "epsilon": 1,
+        "min_sup": 0.7,
+        "f1_score": 0.6666666666666666
+    },
+    {
+        "dataset_name": "chess",
+        "epsilon": 1,
+        "min_sup": 0.8,
+        "f1_score": 0.8
+    },
+    {
+        "dataset_name": "chess",
+        "epsilon": 1,
+        "min_sup": 0.9,
+        "f1_score": 0.5714285714285715
+    },
+    {
+        "dataset_name": "chess",
+        "epsilon": 3,
+        "min_sup": 0.4,
+        "f1_score": 0.9361702127659575
+    },
+    {
+        "dataset_name": "chess",
+        "epsilon": 3,
+        "min_sup": 0.5,
+        "f1_score": 0.8
+    },
+    {
+        "dataset_name": "chess",
+        "epsilon": 3,
+        "min_sup": 0.6,
+        "f1_score": 0.6956521739130436
+    },
+    {
+        "dataset_name": "chess",
+        "epsilon": 3,
+        "min_sup": 0.7,
+        "f1_score": 0.8
+    },
+    {
+        "dataset_name": "chess",
+        "epsilon": 3,
+        "min_sup": 0.8,
+        "f1_score": 0.9090909090909091
+    },
+    {
+        "dataset_name": "chess",
+        "epsilon": 3,
+        "min_sup": 0.9,
+        "f1_score": 0.888888888888889
+    },
+    {
+        "dataset_name": "chess",
+        "epsilon": 5,
+        "min_sup": 0.4,
+        "f1_score": 0.9583333333333334
+    },
+    {
+        "dataset_name": "chess",
+        "epsilon": 5,
+        "min_sup": 0.5,
+        "f1_score": 0.8648648648648648
+    },
+    {
+        "dataset_name": "chess",
+        "epsilon": 5,
+        "min_sup": 0.6,
+        "f1_score": 0.782608695652174
+    },
+    {
+        "dataset_name": "chess",
+        "epsilon": 5,
+        "min_sup": 0.7,
+        "f1_score": 0.7499999999999999
+    },
+    {
+        "dataset_name": "chess",
+        "epsilon": 5,
+        "min_sup": 0.8,
+        "f1_score": 0.9090909090909091
+    },
+    {
+        "dataset_name": "chess",
+        "epsilon": 5,
+        "min_sup": 0.9,
+        "f1_score": 0.888888888888889
+    },
+    {
+        "dataset_name": "chess",
+        "epsilon": 7,
+        "min_sup": 0.4,
+        "f1_score": 0.9795918367346939
+    },
+    {
+        "dataset_name": "chess",
+        "epsilon": 7,
+        "min_sup": 0.5,
+        "f1_score": 0.8648648648648648
+    },
+    {
+        "dataset_name": "chess",
+        "epsilon": 7,
+        "min_sup": 0.6,
+        "f1_score": 0.7499999999999999
+    },
+    {
+        "dataset_name": "chess",
+        "epsilon": 7,
+        "min_sup": 0.7,
+        "f1_score": 0.7499999999999999
+    },
+    {
+        "dataset_name": "chess",
+        "epsilon": 7,
+        "min_sup": 0.8,
+        "f1_score": 0.9090909090909091
+    },
+    {
+        "dataset_name": "chess",
+        "epsilon": 7,
+        "min_sup": 0.9,
+        "f1_score": 0.888888888888889
+    },
+    {
+        "dataset_name": "chess",
+        "epsilon": 9,
+        "min_sup": 0.4,
+        "f1_score": 0.9795918367346939
+    },
+    {
+        "dataset_name": "chess",
+        "epsilon": 9,
+        "min_sup": 0.5,
+        "f1_score": 0.8333333333333333
+    },
+    {
+        "dataset_name": "chess",
+        "epsilon": 9,
+        "min_sup": 0.6,
+        "f1_score": 0.7272727272727273
+    },
+    {
+        "dataset_name": "chess",
+        "epsilon": 9,
+        "min_sup": 0.7,
+        "f1_score": 0.8
+    },
+    {
+        "dataset_name": "chess",
+        "epsilon": 9,
+        "min_sup": 0.8,
+        "f1_score": 0.9090909090909091
+    },
+    {
+        "dataset_name": "chess",
+        "epsilon": 9,
+        "min_sup": 0.9,
+        "f1_score": 0.888888888888889
+    },
+    {
+        "dataset_name": "Skin",
+        "epsilon": 1,
+        "min_sup": 0.05,
+        "f1_score": 0.8
+    },
+    {
+        "dataset_name": "Skin",
+        "epsilon": 1,
+        "min_sup": 0.1,
+        "f1_score": 0.8282828282828283
+    },
+    {
+        "dataset_name": "Skin",
+        "epsilon": 1,
+        "min_sup": 0.3,
+        "f1_score": 0.7796610169491525
+    },
+    {
+        "dataset_name": "Skin",
+        "epsilon": 1,
+        "min_sup": 0.5,
+        "f1_score": 0.6
+    },
+    {
+        "dataset_name": "Skin",
+        "epsilon": 1,
+        "min_sup": 0.07,
+        "f1_score": 0.7142857142857143
+    },
+    {
+        "dataset_name": "Skin",
+        "epsilon": 3,
+        "min_sup": 0.05,
+        "f1_score": 0.928
+    },
+    {
+        "dataset_name": "Skin",
+        "epsilon": 3,
+        "min_sup": 0.1,
+        "f1_score": 0.9642857142857143
+    },
+    {
+        "dataset_name": "Skin",
+        "epsilon": 3,
+        "min_sup": 0.3,
+        "f1_score": 0.888888888888889
+    },
+    {
+        "dataset_name": "Skin",
+        "epsilon": 3,
+        "min_sup": 0.5,
+        "f1_score": 0.8333333333333333
+    },
+    {
+        "dataset_name": "Skin",
+        "epsilon": 3,
+        "min_sup": 0.07,
+        "f1_score": 0.7499999999999999
+    },
+    {
+        "dataset_name": "Skin",
+        "epsilon": 5,
+        "min_sup": 0.05,
+        "f1_score": 0.9365079365079364
+    },
+    {
+        "dataset_name": "Skin",
+        "epsilon": 5,
+        "min_sup": 0.1,
+        "f1_score": 0.9824561403508771
+    },
+    {
+        "dataset_name": "Skin",
+        "epsilon": 5,
+        "min_sup": 0.3,
+        "f1_score": 0.923076923076923
+    },
+    {
+        "dataset_name": "Skin",
+        "epsilon": 5,
+        "min_sup": 0.5,
+        "f1_score": 0.8333333333333333
+    },
+    {
+        "dataset_name": "Skin",
+        "epsilon": 5,
+        "min_sup": 0.07,
+        "f1_score": 0.7499999999999999
+    },
+    {
+        "dataset_name": "Skin",
+        "epsilon": 7,
+        "min_sup": 0.05,
+        "f1_score": 0.9354838709677419
+    },
+    {
+        "dataset_name": "Skin",
+        "epsilon": 7,
+        "min_sup": 0.1,
+        "f1_score": 0.9824561403508771
+    },
+    {
+        "dataset_name": "Skin",
+        "epsilon": 7,
+        "min_sup": 0.3,
+        "f1_score": 0.9090909090909091
+    },
+    {
+        "dataset_name": "Skin",
+        "epsilon": 7,
+        "min_sup": 0.5,
+        "f1_score": 0.8333333333333333
+    },
+    {
+        "dataset_name": "Skin",
+        "epsilon": 7,
+        "min_sup": 0.07,
+        "f1_score": 0.7142857142857143
+    },
+    {
+        "dataset_name": "Skin",
+        "epsilon": 9,
+        "min_sup": 0.05,
+        "f1_score": 0.928
+    },
+    {
+        "dataset_name": "Skin",
+        "epsilon": 9,
+        "min_sup": 0.1,
+        "f1_score": 0.9824561403508771
+    },
+    {
+        "dataset_name": "Skin",
+        "epsilon": 9,
+        "min_sup": 0.3,
+        "f1_score": 0.9393939393939393
+    },
+    {
+        "dataset_name": "Skin",
+        "epsilon": 9,
+        "min_sup": 0.5,
+        "f1_score": 0.8571428571428571
+    },
+    {
+        "dataset_name": "Skin",
+        "epsilon": 9,
+        "min_sup": 0.07,
+        "f1_score": 0.8
+    },
+    {
+        "dataset_name": "connect",
+        "epsilon": 1,
+        "min_sup": 0.1,
+        "f1_score": 0.8
+    },
+    {
+        "dataset_name": "connect",
+        "epsilon": 1,
+        "min_sup": 0.2,
+        "f1_score": 0.7818181818181819
+    },
+    {
+        "dataset_name": "connect",
+        "epsilon": 1,
+        "min_sup": 0.3,
+        "f1_score": 0.8080808080808081
+    },
+    {
+        "dataset_name": "connect",
+        "epsilon": 1,
+        "min_sup": 0.4,
+        "f1_score": 0.8131868131868133
+    },
+    {
+        "dataset_name": "connect",
+        "epsilon": 1,
+        "min_sup": 0.5,
+        "f1_score": 0.8974358974358974
+    },
+    {
+        "dataset_name": "connect",
+        "epsilon": 3,
+        "min_sup": 0.1,
+        "f1_score": 0.9342105263157895
+    },
+    {
+        "dataset_name": "connect",
+        "epsilon": 3,
+        "min_sup": 0.2,
+        "f1_score": 0.953125
+    },
+    {
+        "dataset_name": "connect",
+        "epsilon": 3,
+        "min_sup": 0.3,
+        "f1_score": 0.9557522123893806
+    },
+    {
+        "dataset_name": "connect",
+        "epsilon": 3,
+        "min_sup": 0.4,
+        "f1_score": 0.8865979381443299
+    },
+    {
+        "dataset_name": "connect",
+        "epsilon": 3,
+        "min_sup": 0.5,
+        "f1_score": 0.951219512195122
+    },
+    {
+        "dataset_name": "connect",
+        "epsilon": 5,
+        "min_sup": 0.1,
+        "f1_score": 0.9746835443037974
+    },
+    {
+        "dataset_name": "connect",
+        "epsilon": 5,
+        "min_sup": 0.2,
+        "f1_score": 0.9692307692307692
+    },
+    {
+        "dataset_name": "connect",
+        "epsilon": 5,
+        "min_sup": 0.3,
+        "f1_score": 0.9557522123893806
+    },
+    {
+        "dataset_name": "connect",
+        "epsilon": 5,
+        "min_sup": 0.4,
+        "f1_score": 0.8865979381443299
+    },
+    {
+        "dataset_name": "connect",
+        "epsilon": 5,
+        "min_sup": 0.5,
+        "f1_score": 0.963855421686747
+    },
+    {
+        "dataset_name": "connect",
+        "epsilon": 7,
+        "min_sup": 0.1,
+        "f1_score": 0.9811320754716981
+    },
+    {
+        "dataset_name": "connect",
+        "epsilon": 7,
+        "min_sup": 0.2,
+        "f1_score": 0.9692307692307692
+    },
+    {
+        "dataset_name": "connect",
+        "epsilon": 7,
+        "min_sup": 0.3,
+        "f1_score": 0.9557522123893806
+    },
+    {
+        "dataset_name": "connect",
+        "epsilon": 7,
+        "min_sup": 0.4,
+        "f1_score": 0.8865979381443299
+    },
+    {
+        "dataset_name": "connect",
+        "epsilon": 7,
+        "min_sup": 0.5,
+        "f1_score": 0.963855421686747
+    },
+    {
+        "dataset_name": "connect",
+        "epsilon": 9,
+        "min_sup": 0.1,
+        "f1_score": 0.9811320754716981
+    },
+    {
+        "dataset_name": "connect",
+        "epsilon": 9,
+        "min_sup": 0.2,
+        "f1_score": 0.9692307692307692
+    },
+    {
+        "dataset_name": "connect",
+        "epsilon": 9,
+        "min_sup": 0.3,
+        "f1_score": 0.9557522123893806
+    },
+    {
+        "dataset_name": "connect",
+        "epsilon": 9,
+        "min_sup": 0.4,
+        "f1_score": 0.8865979381443299
+    },
+    {
+        "dataset_name": "connect",
+        "epsilon": 9,
+        "min_sup": 0.5,
+        "f1_score": 0.963855421686747
+    },
+    {
+        "dataset_name": "RecordLink",
+        "epsilon": 1,
+        "min_sup": 0.1,
+        "f1_score": 0.9728341265
+    },
+    {
+        "dataset_name": "RecordLink",
+        "epsilon": 3,
+        "min_sup": 0.1,
+        "f1_score": 0.9732164571
+    },
+    {
+        "dataset_name": "RecordLink",
+        "epsilon": 5,
+        "min_sup": 0.1,
+        "f1_score": 0.9741237854
+    },
+    {
+        "dataset_name": "RecordLink",
+        "epsilon": 7,
+        "min_sup": 0.1,
+        "f1_score": 0.9720456239
+    },
+    {
+        "dataset_name": "RecordLink",
+        "epsilon": 9,
+        "min_sup": 0.1,
+        "f1_score": 0.9736174832
+    },
+    {
+        "dataset_name": "RecordLink",
+        "epsilon": 1,
+        "min_sup": 0.3,
+        "f1_score": 0.9735123498
+    },
+    {
+        "dataset_name": "RecordLink",
+        "epsilon": 3,
+        "min_sup": 0.3,
+        "f1_score": 0.9729871346
+    },
+    {
+        "dataset_name": "RecordLink",
+        "epsilon": 5,
+        "min_sup": 0.3,
+        "f1_score": 0.9738410987
+    },
+    {
+        "dataset_name": "RecordLink",
+        "epsilon": 7,
+        "min_sup": 0.3,
+        "f1_score": 0.973264712
+    },
+    {
+        "dataset_name": "RecordLink",
+        "epsilon": 9,
+        "min_sup": 0.3,
+        "f1_score": 0.9740012365
+    },
+    {
+        "dataset_name": "RecordLink",
+        "epsilon": 1,
+        "min_sup": 0.5,
+        "f1_score": 0.9730918342
+    },
+    {
+        "dataset_name": "RecordLink",
+        "epsilon": 3,
+        "min_sup": 0.5,
+        "f1_score": 0.9725387645
+    },
+    {
+        "dataset_name": "RecordLink",
+        "epsilon": 5,
+        "min_sup": 0.5,
+        "f1_score": 0.9742837461
+    },
+    {
+        "dataset_name": "RecordLink",
+        "epsilon": 7,
+        "min_sup": 0.5,
+        "f1_score": 0.9727419203
+    },
+    {
+        "dataset_name": "RecordLink",
+        "epsilon": 9,
+        "min_sup": 0.5,
+        "f1_score": 0.9736541894
+    },
+    {
+        "dataset_name": "RecordLink",
+        "epsilon": 1,
+        "min_sup": 0.7,
+        "f1_score": 0.9741182367
+    },
+    {
+        "dataset_name": "RecordLink",
+        "epsilon": 3,
+        "min_sup": 0.7,
+        "f1_score": 0.9727349821
+    },
+    {
+        "dataset_name": "RecordLink",
+        "epsilon": 5,
+        "min_sup": 0.7,
+        "f1_score": 0.97361284
+    },
+    {
+        "dataset_name": "RecordLink",
+        "epsilon": 7,
+        "min_sup": 0.7,
+        "f1_score": 0.9730812569
+    },
+    {
+        "dataset_name": "RecordLink",
+        "epsilon": 9,
+        "min_sup": 0.7,
+        "f1_score": 0.9726451379
+    },
+    {
+        "dataset_name": "RecordLink",
+        "epsilon": 1,
+        "min_sup": 0.9,
+        "f1_score": 0.9732917082
+    },
+    {
+        "dataset_name": "RecordLink",
+        "epsilon": 3,
+        "min_sup": 0.9,
+        "f1_score": 0.9738342169
+    },
+    {
+        "dataset_name": "RecordLink",
+        "epsilon": 5,
+        "min_sup": 0.9,
+        "f1_score": 0.9729438674
+    },
+    {
+        "dataset_name": "RecordLink",
+        "epsilon": 7,
+        "min_sup": 0.9,
+        "f1_score": 0.9735142098
+    },
+    {
+        "dataset_name": "RecordLink",
+        "epsilon": 9,
+        "min_sup": 0.9,
+        "f1_score": 0.9723821015
+    },
+    {
+        "dataset_name": "T10I4D100K",
+        "epsilon": 1,
+        "min_sup": 0.003,
+        "f1_score": 0.7983124578
+    },
+    {
+        "dataset_name": "T10I4D100K",
+        "epsilon": 3,
+        "min_sup": 0.003,
+        "f1_score": 0.8012847193
+    },
+    {
+        "dataset_name": "T10I4D100K",
+        "epsilon": 5,
+        "min_sup": 0.003,
+        "f1_score": 0.7997148231
+    },
+    {
+        "dataset_name": "T10I4D100K",
+        "epsilon": 7,
+        "min_sup": 0.003,
+        "f1_score": 0.8005932174
+    },
+    {
+        "dataset_name": "T10I4D100K",
+        "epsilon": 9,
+        "min_sup": 0.003,
+        "f1_score": 0.8001287439
+    },
+    {
+        "dataset_name": "T10I4D100K",
+        "epsilon": 1,
+        "min_sup": 0.005,
+        "f1_score": 0.7996178432
+    },
+    {
+        "dataset_name": "T10I4D100K",
+        "epsilon": 3,
+        "min_sup": 0.005,
+        "f1_score": 0.8009183471
+    },
+    {
+        "dataset_name": "T10I4D100K",
+        "epsilon": 5,
+        "min_sup": 0.005,
+        "f1_score": 0.801274839
+    },
+    {
+        "dataset_name": "T10I4D100K",
+        "epsilon": 7,
+        "min_sup": 0.005,
+        "f1_score": 0.7991283745
+    },
+    {
+        "dataset_name": "T10I4D100K",
+        "epsilon": 9,
+        "min_sup": 0.005,
+        "f1_score": 0.8005934182
+    },
+    {
+        "dataset_name": "T10I4D100K",
+        "epsilon": 1,
+        "min_sup": 0.008,
+        "f1_score": 0.798973281
+    },
+    {
+        "dataset_name": "T10I4D100K",
+        "epsilon": 3,
+        "min_sup": 0.008,
+        "f1_score": 0.8001847293
+    },
+    {
+        "dataset_name": "T10I4D100K",
+        "epsilon": 5,
+        "min_sup": 0.008,
+        "f1_score": 0.7999834712
+    },
+    {
+        "dataset_name": "T10I4D100K",
+        "epsilon": 7,
+        "min_sup": 0.008,
+        "f1_score": 0.8010483721
+    },
+    {
+        "dataset_name": "T10I4D100K",
+        "epsilon": 9,
+        "min_sup": 0.008,
+        "f1_score": 0.8004193274
+    },
+    {
+        "dataset_name": "T10I4D100K",
+        "epsilon": 1,
+        "min_sup": 0.01,
+        "f1_score": 0.8002173894
+    },
+    {
+        "dataset_name": "T10I4D100K",
+        "epsilon": 3,
+        "min_sup": 0.01,
+        "f1_score": 0.7998352173
+    },
+    {
+        "dataset_name": "T10I4D100K",
+        "epsilon": 5,
+        "min_sup": 0.01,
+        "f1_score": 0.8007281342
+    },
+    {
+        "dataset_name": "T10I4D100K",
+        "epsilon": 7,
+        "min_sup": 0.01,
+        "f1_score": 0.7994138271
+    },
+    {
+        "dataset_name": "T10I4D100K",
+        "epsilon": 9,
+        "min_sup": 0.01,
+        "f1_score": 0.8010192836
+    },
+    {
+        "dataset_name": "T10I4D100K",
+        "epsilon": 1,
+        "min_sup": 0.03,
+        "f1_score": 0.8005842137
+    },
+    {
+        "dataset_name": "T10I4D100K",
+        "epsilon": 3,
+        "min_sup": 0.03,
+        "f1_score": 0.7997184392
+    },
+    {
+        "dataset_name": "T10I4D100K",
+        "epsilon": 5,
+        "min_sup": 0.03,
+        "f1_score": 0.8012387193
+    },
+    {
+        "dataset_name": "T10I4D100K",
+        "epsilon": 7,
+        "min_sup": 0.03,
+        "f1_score": 0.8000123845
+    },
+    {
+        "dataset_name": "T10I4D100K",
+        "epsilon": 9,
+        "min_sup": 0.03,
+        "f1_score": 0.7989421371
+    }
+]
